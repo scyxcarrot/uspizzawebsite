@@ -46,6 +46,7 @@ export const STORE = {
     email: "hello@example.com",
     // Deliberately fictional: 555 numbers are reserved for fiction.
     phone: "+60 3-0000 5555 (fictional demo number)",
+    summary: "Email hello@example.com or call +60 3-0000 5555 (a fictional demo number).",
   },
   allergens: {
     summary:

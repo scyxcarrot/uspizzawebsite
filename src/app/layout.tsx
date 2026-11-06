@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppStateProvider } from "@/components/AppStateProvider";
 import { CartPanel } from "@/components/cart/CartPanel";
 import { ViewCartBar } from "@/components/cart/ViewCartBar";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 import { NoticeToast } from "@/components/layout/NoticeToast";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <CartPanel />
           <ViewCartBar />
           <NoticeToast />
+          <ChatWidget />
         </AppStateProvider>
       </body>
     </html>

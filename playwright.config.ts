@@ -37,6 +37,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
-    env: { AI_MOCK: "true", GEMINI_API_KEY: "" },
+    env: { AI_MOCK: "true", GEMINI_API_KEY: "", CHAT_RATE_LIMIT_PER_MINUTE: "1000" },
   },
 });

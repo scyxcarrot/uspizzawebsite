@@ -72,6 +72,12 @@ html {
 html:has(dialog[open]) {
   overflow: hidden;
 }
+/* The chat is full screen on phones, so the page behind should not scroll. */
+@media (max-width: 767px) {
+  html.chat-open {
+    overflow: hidden;
+  }
+}
 dialog::backdrop {
   background: rgb(42 35 33 / 0.55);
 }

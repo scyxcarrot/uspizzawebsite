@@ -4,7 +4,7 @@ import { STORE } from "@/data/store";
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-line bg-ink text-white/85">
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 text-sm sm:grid-cols-3 sm:px-6">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 pt-8 pb-28 text-sm sm:grid-cols-3 sm:px-6">
         <div>
           <p className="font-display text-lg font-extrabold text-white">US Pizza Demo</p>
           <p className="mt-2">
