@@ -75,6 +75,38 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+describe("whole-reply deadline", () => {
+  it("stops a reply that runs past the deadline with the friendly timeout message", async () => {
+    const calls: string[] = [];
+    // A model that keeps asking for the cart, slowly, forever.
+    const client = {
+      models: {
+        generateContentStream: async (params: { model: string; config: { abortSignal: AbortSignal } }) => {
+          calls.push(params.model);
+          const abortSignal = params.config.abortSignal;
+          return (async function* () {
+            await new Promise<void>((resolve, reject) => {
+              const t = setTimeout(resolve, 30);
+              abortSignal.addEventListener("abort", () => {
+                clearTimeout(t);
+                reject(abortSignal.reason);
+              });
+            });
+            yield { candidates: [{ content: { role: "model", parts: [{ functionCall: { name: "get_cart", args: {} } }] } }] } as unknown as GenerateContentResponse;
+          })();
+        },
+        generateContent: async () => ({}),
+      },
+    } as unknown as GenAiClient;
+    const events: ChatEvent[] = [];
+    await runChatTurn({ config, request: request("hi"), emit: (e) => events.push(e), client, turnTimeoutMs: 80 });
+    const errors = events.filter((e) => e.type === "error");
+    expect(errors).toEqual([expect.objectContaining({ code: "timeout", retryable: true })]);
+    expect(calls.length).toBeLessThan(5);
+    expect(events.at(-1)?.type).toBe("error");
+  });
+});
+
 describe("model fallback", () => {
   it("retries the same call once on the fallback model after a quota error", async () => {
     const { calls, replyText, errors, events } = await run([{ error: quotaError() }, { parts: [[{ text: "Hello!" }]] }]);

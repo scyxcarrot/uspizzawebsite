@@ -12,7 +12,12 @@ import { createRateLimiter, clientIp } from "@/lib/chat/rateLimit";
 import { parseChatRequest } from "@/lib/chat/request";
 import type { ChatEvent } from "@/lib/chat/types";
 
-export const maxDuration = 60;
+// Seconds. Streaming time counts too. A reply can make up to 6 Gemini calls
+// (5 tool rounds plus one fallback retry) of up to 25 s each, plus web
+// searches, so the engine stops every reply at 120 s (LIMITS.turnTimeoutMs).
+// 150 s leaves room to send the closing message, and is within the Vercel
+// Hobby limit of 300 s (Fluid compute, the default for new projects).
+export const maxDuration = 150;
 
 const rateLimit = createRateLimiter(LIMITS.rateLimit.requests, LIMITS.rateLimit.windowMs);
 

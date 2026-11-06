@@ -13,7 +13,10 @@ export const LIMITS = {
   historySentToModel: 12,
   maxToolRounds: 5,
   maxOutputTokens: 2048,
+  /** Per Gemini call. */
   requestTimeoutMs: 25_000,
+  /** Whole reply, including every model call and tool. Keep below maxDuration in app/api/chat/route.ts. */
+  turnTimeoutMs: 120_000,
   searchTimeoutMs: 20_000,
   /** Per IP. Override with CHAT_RATE_LIMIT_PER_MINUTE (the browser tests raise it). */
   rateLimit: { requests: Number(process.env.CHAT_RATE_LIMIT_PER_MINUTE) || 12, windowMs: 60_000 },

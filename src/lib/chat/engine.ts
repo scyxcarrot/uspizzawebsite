@@ -18,6 +18,7 @@ async function withTimeout<T>(ms: number, parent: AbortSignal | undefined, fn: (
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
   const onParentAbort = () => controller.abort(parent?.reason);
+  if (parent?.aborted) onParentAbort();
   parent?.addEventListener("abort", onParentAbort);
   try {
     return await fn(controller.signal);
@@ -45,8 +46,14 @@ export async function runChatTurn(args: {
   now?: Date;
   /** For tests. Defaults to a real Gemini client. */
   client?: GenAiClient;
+  /** For tests. Defaults to LIMITS.turnTimeoutMs. */
+  turnTimeoutMs?: number;
 }): Promise<void> {
-  const { config, request, emit, signal } = args;
+  const { config, request, emit } = args;
+  // One deadline for the whole reply (all model calls and tools), so it always
+  // ends with a friendly message well before the hosting platform's limit.
+  const turnDeadline = AbortSignal.timeout(args.turnTimeoutMs ?? LIMITS.turnTimeoutMs);
+  const signal = args.signal ? AbortSignal.any([args.signal, turnDeadline]) : turnDeadline;
   const now = args.now ?? new Date();
   const ai = args.client ?? new GoogleGenAI({ apiKey: config.apiKey });
 

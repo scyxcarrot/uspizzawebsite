@@ -192,6 +192,7 @@ Safety rules in the system prompt and the code:
 - Links in chat may point to the site's own pages (such as `/checkout`) as well as `https` URLs, because the prompt also asks the assistant to link to checkout. Internal links open in the same tab; external ones open in a new tab.
 - Pickup orders show "Ready for pickup" and "Collected" instead of "Out for delivery" and "Delivered", using the same timings.
 - `CHAT_RATE_LIMIT_PER_MINUTE` (optional, default 12) lets the browser tests run many chats in parallel.
+- Time limits: each Gemini call stops after 25 seconds, each web search after 20 seconds, and a whole reply after 120 seconds, with a friendly "took too long" message. The chat route allows 150 seconds (`maxDuration`), within the 300-second limit of Vercel's Hobby plan with Fluid compute (on by default for new projects). Streaming time counts toward that limit.
 
 ## 7. Known limitations
 
