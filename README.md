@@ -2,7 +2,7 @@
 
 > **Demo with dummy data.** This is an assessment project, not an official US Pizza website. No real orders are taken and no payment is collected.
 
-**Live demo:** _coming soon (link to be added after deployment)_
+**Live demo:** https://uspizzawebsite.vercel.app (Vercel Hobby plan, Singapore region)
 
 ## 1. What this is, in plain English
 
@@ -230,6 +230,7 @@ Run on 6 and 7 November 2026 on Windows 11, Node 22.18. The raw replies for each
 | Invalid API key | Checked against the real Gemini API with a fake key: the browser gets the friendly message, the raw error stays in the server log |
 | Daily cap | Checked live with the cap set to 1: the turn stopped after one Gemini call with the friendly message, and the next request was refused (HTTP 429) without calling Gemini |
 | Security check | No API key in Git history, tracked files or the built browser bundle; `.env.local` is ignored by Git; mock mode is refused when `VERCEL_ENV=production` (unit-tested) |
+| Live site | Tested on 7 November 2026 at https://uspizzawebsite.vercel.app with a real browser: a full order (Large Beef Pepperoni with Cheese-Stuffed crust and a Cola, RM 54.00 with delivery, through checkout to tracking) at desktop and phone sizes; a chat menu question (vegetarian pizzas, correct prices); and a chat request that added 2 × Large Beef Pepperoni to the cart. The Vercel logs showed no errors, and every reply came from `gemini-3.5-flash-lite`. Each Gemini call took 3 to 11 seconds there, slower than in local testing, but well inside the time limits |
 | Real phone | **Not tested yet.** Tested only with emulated phone sizes in Chromium. |
 
 ### Live chatbot evaluation (`npm run eval:chat`)
