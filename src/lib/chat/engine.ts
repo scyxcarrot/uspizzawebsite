@@ -96,7 +96,7 @@ export async function runChatTurn(args: {
       const responses: Part[] = [];
       for (const call of calls) {
         const name = call.name ?? "";
-        emit({ type: "status", text: isToolName(name) ? TOOL_STATUS[name] : "Working on it…" });
+        emit({ type: "status", text: isToolName(name) ? TOOL_STATUS[name] : "Working on it…", tool: name });
         const outcome = await runTool(name, call.args, ctx);
         if (outcome.cart) {
           ctx.cart = outcome.cart; // later tools in this turn see the new cart

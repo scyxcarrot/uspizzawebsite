@@ -46,7 +46,7 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
       emit({ type: "done" });
       return;
     }
-    emit({ type: "status", text: TOOL_STATUS.add_to_cart });
+    emit({ type: "status", text: TOOL_STATUS.add_to_cart, tool: "add_to_cart" });
     const outcome = await runTool("add_to_cart", { item: item.id, quantity, ...(size ? { size } : {}) }, ctx);
     if (outcome.cart) {
       emit({ type: "cart", cart: outcome.cart, message: outcome.cartMessage ?? "Cart updated" });
@@ -60,7 +60,7 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
   }
 
   if (/\bweather\b|\bnews\b/.test(text)) {
-    emit({ type: "status", text: TOOL_STATUS.web_search });
+    emit({ type: "status", text: TOOL_STATUS.web_search, tool: "web_search" });
     const outcome = await runTool("web_search", { query: last }, ctx);
     streamText(emit, "(Mock) Here is what I found on the web.");
     if (outcome.sources) emit({ type: "sources", sources: outcome.sources });
@@ -68,7 +68,7 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
     return;
   }
 
-  emit({ type: "status", text: TOOL_STATUS.search_menu });
+  emit({ type: "status", text: TOOL_STATUS.search_menu, tool: "search_menu" });
   streamText(
     emit,
     "(Mock reply) This is a scripted test response. Try **\"Add two large pepperoni pizzas\"** to see the cart update.\n\n- Mock mode is for tests only\n- No AI is called",

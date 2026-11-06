@@ -6,7 +6,7 @@ export type Source = { title: string; url: string };
 
 /** One line of the newline-delimited JSON stream sent by /api/chat. */
 export type ChatEvent =
-  | { type: "status"; text: string }
+  | { type: "status"; text: string; tool?: string }
   | { type: "text"; delta: string }
   | { type: "cart"; cart: CartLine[]; message: string }
   | { type: "sources"; sources: Source[] }
