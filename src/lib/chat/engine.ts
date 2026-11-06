@@ -4,6 +4,7 @@
 
 import { GoogleGenAI, type Content, type FunctionCall, type Part } from "@google/genai";
 import { LIMITS, type AiConfig } from "@/lib/chat/config";
+import { geminiDailyCap } from "@/lib/chat/dailyCap";
 import { classifyError, FRIENDLY } from "@/lib/chat/errors";
 import type { ChatRequest } from "@/lib/chat/request";
 import { buildSystemPrompt } from "@/lib/chat/systemPrompt";
@@ -53,6 +54,12 @@ export async function runChatTurn(args: {
 
   try {
     for (let round = 0; round < LIMITS.maxToolRounds; round++) {
+      // Every model call counts against the server's daily cap.
+      if (!geminiDailyCap.tryConsume()) {
+        const f = FRIENDLY.daily_cap;
+        emit({ type: "error", code: f.code, message: f.message, retryable: f.retryable });
+        return;
+      }
       const { parts, calls, wroteText } = await withTimeout(LIMITS.requestTimeoutMs, signal, async (abortSignal) => {
         const stream = await ai.models.generateContentStream({
           model: config.chatModel,
@@ -127,6 +134,9 @@ export async function webSearch(
   query: string,
   parent?: AbortSignal,
 ): Promise<WebSearchResult> {
+  if (!geminiDailyCap.tryConsume()) {
+    return { ok: false, error: "Live information could not be checked: the assistant's daily limit has been reached." };
+  }
   try {
     return await withTimeout(LIMITS.searchTimeoutMs, parent, async (abortSignal) => {
       const response = await ai.models.generateContent({

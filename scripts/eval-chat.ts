@@ -17,7 +17,11 @@ import { formatRM } from "../src/lib/money";
 import { priceCart } from "../src/lib/pricing";
 
 const BASE_URL = process.env.EVAL_BASE_URL ?? "http://localhost:3000";
-const DELAY_MS = Number(process.env.EVAL_DELAY_MS ?? 6000);
+// Free-tier keys allow only a few requests per minute, and each question can
+// take 2-4 model calls, so the default pause is long.
+const DELAY_MS = Number(process.env.EVAL_DELAY_MS ?? 30000);
+const RATE_LIMIT_WAIT_MS = Number(process.env.EVAL_RATE_LIMIT_WAIT_MS ?? 65000);
+const RATE_LIMIT_RETRIES = 3;
 const ONLY = process.env.EVAL_ONLY?.split(",").map(Number); // e.g. EVAL_ONLY=4,12
 
 type Reply = {
@@ -31,7 +35,19 @@ type Reply = {
 };
 
 type Check = { pass: boolean; why: string; review?: boolean };
-type Case = { n: number; q: string; expect: string; check: (r: Reply, cartBefore: CartLine[]) => Check };
+type Case = {
+  n: number;
+  q: string;
+  expect: string;
+  check: (r: Reply, cartBefore: CartLine[]) => Check;
+  /** Cart this question expects when the question before it was skipped (EVAL_ONLY). */
+  cartIfResumed?: CartLine[];
+};
+
+const TWO_LARGE_PEPPERONI: CartLine[] = [
+  { lineId: "beef-pepperoni:large:hand-tossed", itemId: "beef-pepperoni", size: "large", crust: "hand-tossed", quantity: 2 },
+];
+const ONE_COLA: CartLine[] = [{ lineId: "cola", itemId: "cola", quantity: 1 }];
 
 const PIZZAS = [
   "Margherita",
@@ -168,6 +184,7 @@ const CASES: Case[] = [
     n: 13,
     q: "Add a pizza",
     expect: "Asks which pizza and size, and does not change the cart",
+    cartIfResumed: TWO_LARGE_PEPPERONI,
     check: (r, before) =>
       all(
         [r.cartEvents.length === 0, "cart changed"],
@@ -179,6 +196,7 @@ const CASES: Case[] = [
     n: 14,
     q: "Remove the pepperoni and add a Cola",
     expect: "Cart is updated correctly in one turn",
+    cartIfResumed: TWO_LARGE_PEPPERONI,
     check: (r) =>
       all(
         [!r.cartAfter.some((l) => l.itemId === "beef-pepperoni"), "pepperoni still in cart"],
@@ -189,6 +207,7 @@ const CASES: Case[] = [
     n: 15,
     q: "What's in my cart and what's the total?",
     expect: "Matches the calculated cart",
+    cartIfResumed: ONE_COLA,
     check: (r) => {
       const total = formatRM(priceCart(r.cartAfter, "delivery").totalSen).replace("RM ", "");
       return all([usedAny(r, "get_cart"), "get_cart not used"], [r.text.includes(total), `total ${total} not found`]);
@@ -278,14 +297,24 @@ async function main() {
   let cart: CartLine[] = [];
   const rows: { n: number; q: string; expect: string; result: string; why: string; tools: string; ms: number; reply: string }[] = [];
 
+  let previous = 0;
   for (const c of CASES) {
     if (ONLY && !ONLY.includes(c.n)) continue;
+    // When resuming part-way, give a cart question the cart it expects.
+    if (c.cartIfResumed && previous !== c.n - 1) cart = c.cartIfResumed;
+    previous = c.n;
     const before = cart;
-    let reply: Reply;
-    try {
-      reply = await ask(c.q, cart);
-    } catch (err) {
-      reply = { text: "", tools: [], cartEvents: [], cartAfter: cart, sources: [], error: String(err), ms: 0 };
+    let reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], ms: 0 };
+    for (let attempt = 0; attempt <= RATE_LIMIT_RETRIES; attempt++) {
+      try {
+        reply = await ask(c.q, before);
+      } catch (err) {
+        reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], error: String(err), ms: 0 };
+      }
+      // A per-minute rate limit is not a chatbot failure: wait and ask again.
+      if (!reply.error?.startsWith("rate_limited") || attempt === RATE_LIMIT_RETRIES) break;
+      console.log(`#${c.n} rate-limited, waiting ${RATE_LIMIT_WAIT_MS / 1000}s before retrying...`);
+      await sleep(RATE_LIMIT_WAIT_MS);
     }
     cart = reply.cartAfter;
     const check = reply.error ? bad(`error: ${reply.error}`) : c.check(reply, before);

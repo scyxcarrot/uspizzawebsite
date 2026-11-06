@@ -4,6 +4,7 @@
 // All Gemini calls happen here on the server; the API key never reaches the browser.
 
 import { getAiConfig, LIMITS } from "@/lib/chat/config";
+import { geminiDailyCap } from "@/lib/chat/dailyCap";
 import { runChatTurn, type Emit } from "@/lib/chat/engine";
 import { FRIENDLY, type FriendlyError } from "@/lib/chat/errors";
 import { runMockTurn } from "@/lib/chat/mock";
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
   const config = getAiConfig();
   if (!config.mock && !config.apiKey) {
     return errorResponse(FRIENDLY.missing_key, 503);
+  }
+  // Don't start a turn if today's Gemini allowance is already used up.
+  if (!config.mock && geminiDailyCap.remaining() === 0) {
+    return errorResponse(FRIENDLY.daily_cap, 429);
   }
 
   const encoder = new TextEncoder();

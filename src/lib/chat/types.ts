@@ -22,6 +22,7 @@ export type ChatErrorCode =
   | "network"
   | "unavailable"
   | "too_many_steps"
+  | "daily_cap"
   | "unknown";
 
 export type ChatRole = "user" | "assistant";

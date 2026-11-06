@@ -2,7 +2,7 @@
 // None of these use the NEXT_PUBLIC_ prefix, so they never reach the browser.
 
 /** Defaults chosen from the Gemini docs on 2026-11-06 (see README). */
-export const DEFAULT_CHAT_MODEL = "gemini-3.6-flash";
+export const DEFAULT_CHAT_MODEL = "gemini-3.5-flash-lite";
 export const DEFAULT_SEARCH_MODEL = "gemini-3.6-flash";
 
 export const LIMITS = {

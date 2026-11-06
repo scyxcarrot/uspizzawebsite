@@ -38,6 +38,12 @@ export const FRIENDLY: Record<ChatErrorCode, FriendlyError> = {
     message: "Sorry, that request needed too many steps. Could you ask in a simpler way?",
     retryable: false,
   },
+  daily_cap: {
+    code: "daily_cap",
+    message:
+      "The assistant has answered as many questions as this demo allows today. It will be back tomorrow. You can still browse the menu, order, and track orders as normal.",
+    retryable: false,
+  },
   unknown: { code: "unknown", message: "Sorry, something went wrong. Please try again.", retryable: true },
 };
 

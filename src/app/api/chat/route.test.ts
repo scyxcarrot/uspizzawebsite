@@ -60,6 +60,21 @@ describe("POST /api/chat", () => {
     expect(events.at(-1)?.type).toBe("done");
   });
 
+  it("returns a friendly message once the daily Gemini cap is reached, without calling Gemini", async () => {
+    const { POST } = await loadRoute({ AI_MOCK: "false", GEMINI_API_KEY: "test-key", GEMINI_DAILY_REQUEST_CAP: "2" });
+    // Same module instance the route uses (loaded after resetModules).
+    const { geminiDailyCap } = await import("@/lib/chat/dailyCap");
+    while (geminiDailyCap.tryConsume()) {
+      // use up today's allowance
+    }
+    const res = await POST(body({ messages: [{ role: "user", text: "hi" }] }));
+    expect(res.status).toBe(429);
+    const json = (await res.json()) as { error: { code: string; message: string; retryable: boolean } };
+    expect(json.error).toMatchObject({ code: "daily_cap", retryable: false });
+    expect(json.error.message).toMatch(/back tomorrow/);
+    expect(json.error.message).toMatch(/order/);
+  });
+
   it("rate-limits one IP", async () => {
     const { POST } = await loadRoute({ AI_MOCK: "true", CHAT_RATE_LIMIT_PER_MINUTE: "2" });
     const req = () =>
