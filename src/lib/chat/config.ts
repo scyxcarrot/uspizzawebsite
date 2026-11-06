@@ -23,6 +23,8 @@ export type AiConfig = {
   apiKey: string | undefined;
   chatModel: string;
   searchModel: string;
+  /** Used only when chatModel hits a rate-limit or quota error. Unset = no fallback. */
+  fallbackModel: string | undefined;
   mock: boolean;
 };
 
@@ -39,6 +41,7 @@ export function getAiConfig(env: Record<string, string | undefined> = process.en
     apiKey: env.GEMINI_API_KEY?.trim() || undefined,
     chatModel: env.GEMINI_MODEL?.trim() || DEFAULT_CHAT_MODEL,
     searchModel: env.GEMINI_SEARCH_MODEL?.trim() || DEFAULT_SEARCH_MODEL,
+    fallbackModel: env.GEMINI_FALLBACK_MODEL?.trim() || undefined,
     mock: isMockAllowed(env),
   };
 }

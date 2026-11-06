@@ -27,16 +27,28 @@ async function withTimeout<T>(ms: number, parent: AbortSignal | undefined, fn: (
   }
 }
 
+/** The part of the Gemini client the engine uses (tests pass a fake). */
+export type GenAiClient = Pick<GoogleGenAI, "models">;
+
+/** Thrown when a model call fails after some reply text already reached the browser. */
+class FailedAfterText extends Error {
+  constructor(readonly original: unknown) {
+    super("Gemini call failed after text was streamed");
+  }
+}
+
 export async function runChatTurn(args: {
   config: AiConfig & { apiKey: string };
   request: ChatRequest;
   emit: Emit;
   signal?: AbortSignal;
   now?: Date;
+  /** For tests. Defaults to a real Gemini client. */
+  client?: GenAiClient;
 }): Promise<void> {
   const { config, request, emit, signal } = args;
   const now = args.now ?? new Date();
-  const ai = new GoogleGenAI({ apiKey: config.apiKey });
+  const ai = args.client ?? new GoogleGenAI({ apiKey: config.apiKey });
 
   const contents: Content[] = request.messages.map((m) => ({
     role: m.role === "user" ? "user" : "model",
@@ -52,17 +64,20 @@ export async function runChatTurn(args: {
   };
   const sources: Source[] = [];
 
-  try {
-    for (let round = 0; round < LIMITS.maxToolRounds; round++) {
-      // Every model call counts against the server's daily cap.
-      if (!geminiDailyCap.tryConsume()) {
-        const f = FRIENDLY.daily_cap;
-        emit({ type: "error", code: f.code, message: f.message, retryable: f.retryable });
-        return;
-      }
-      const { parts, calls, wroteText } = await withTimeout(LIMITS.requestTimeoutMs, signal, async (abortSignal) => {
+  // The model for this turn. It switches to the fallback (for the rest of the
+  // turn) only when the main model returns a rate-limit or quota error.
+  let model = config.chatModel;
+  const fallback = config.fallbackModel && config.fallbackModel !== config.chatModel ? config.fallbackModel : undefined;
+
+  /** One streamed model call. Tools are NOT run here, so retrying it never repeats a cart change. */
+  const callModel = (modelName: string) =>
+    withTimeout(LIMITS.requestTimeoutMs, signal, async (abortSignal) => {
+      const parts: Part[] = [];
+      const calls: FunctionCall[] = [];
+      let wroteText = false;
+      try {
         const stream = await ai.models.generateContentStream({
-          model: config.chatModel,
+          model: modelName,
           contents,
           config: {
             systemInstruction: buildSystemPrompt(now),
@@ -71,9 +86,6 @@ export async function runChatTurn(args: {
             abortSignal,
           },
         });
-        const parts: Part[] = [];
-        const calls: FunctionCall[] = [];
-        let wroteText = false;
         for await (const chunk of stream) {
           for (const part of chunk.candidates?.[0]?.content?.parts ?? []) {
             // Keep every part (including thought signatures) so the next
@@ -87,14 +99,42 @@ export async function runChatTurn(args: {
             if (part.functionCall) calls.push(part.functionCall);
           }
         }
-        return { parts, calls, wroteText };
-      });
+      } catch (err) {
+        // Text already on screen: a retry would restart or duplicate the reply.
+        throw wroteText ? new FailedAfterText(err) : err;
+      }
+      return { parts, calls, wroteText };
+    });
+
+  const consumeCap = () => {
+    // Every model call counts against the server's daily cap.
+    if (geminiDailyCap.tryConsume()) return true;
+    const f = FRIENDLY.daily_cap;
+    emit({ type: "error", code: f.code, message: f.message, retryable: f.retryable });
+    return false;
+  };
+
+  try {
+    for (let round = 0; round < LIMITS.maxToolRounds; round++) {
+      if (!consumeCap()) return;
+      let result: Awaited<ReturnType<typeof callModel>>;
+      try {
+        result = await callModel(model);
+      } catch (err) {
+        if (!fallback || model === fallback || classifyError(err).code !== "rate_limited") throw err;
+        console.warn(`[chat] ${model} is rate-limited; retrying this call once on ${fallback}`);
+        model = fallback;
+        if (!consumeCap()) return;
+        result = await callModel(model);
+      }
+      const { parts, calls, wroteText } = result;
 
       if (calls.length === 0) {
         if (!wroteText) {
           emit({ type: "text", delta: "Sorry, I couldn't come up with an answer to that. Could you rephrase it?" });
         }
         if (sources.length) emit({ type: "sources", sources: dedupeSources(sources) });
+        console.info(`[chat] answered by ${model}`);
         emit({ type: "done" });
         return;
       }
@@ -117,8 +157,11 @@ export async function runChatTurn(args: {
 
     const f = FRIENDLY.too_many_steps;
     emit({ type: "error", code: f.code, message: f.message, retryable: f.retryable });
-  } catch (err) {
-    console.error("[chat] Gemini request failed:", err);
+  } catch (caught) {
+    const err = caught instanceof FailedAfterText ? caught.original : caught;
+    console.error(`[chat] Gemini request failed (model ${model}):`, err);
+    // Includes a rate-limit error after text has streamed: no fallback then,
+    // just the normal "please try again" message.
     const f = classifyError(err);
     emit({ type: "error", code: f.code, message: f.message, retryable: f.retryable });
   }
@@ -129,7 +172,7 @@ export async function runChatTurn(args: {
  * separate from the main chat, so it does not clash with function calling.
  */
 export async function webSearch(
-  ai: GoogleGenAI,
+  ai: GenAiClient,
   model: string,
   query: string,
   parent?: AbortSignal,
