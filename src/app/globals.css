@@ -77,6 +77,10 @@ html:has(dialog[open]) {
   html.chat-open {
     overflow: hidden;
   }
+  /* The full-screen chat shows cart confirmations inline instead. */
+  html.chat-open .notice-region {
+    display: none;
+  }
 }
 dialog::backdrop {
   background: rgb(42 35 33 / 0.55);

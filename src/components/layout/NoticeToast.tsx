@@ -8,7 +8,7 @@ export function NoticeToast() {
   const { notice } = useAppState();
   return (
     // The live region is always in the DOM so screen readers announce changes.
-    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+    <div role="status" aria-live="polite" className="notice-region pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
       {notice && (
         <p
           key={notice.id}

@@ -67,7 +67,7 @@ export function ChatWidget() {
           onClick={() => setOpen(true)}
           data-testid="chat-launcher"
           aria-haspopup="dialog"
-          className="fixed right-4 z-40 flex size-14 items-center justify-center gap-2 rounded-full bg-ink text-white shadow-[var(--shadow-pop)] hover:bg-black md:right-6 md:h-14 md:w-auto md:px-5"
+          className="fixed right-4 z-40 flex size-14 items-center justify-center gap-2 rounded-full bg-ink text-white ring-2 ring-white shadow-[var(--shadow-pop)] hover:bg-black md:right-6 md:h-14 md:w-auto md:px-5"
           style={{ bottom: "calc(var(--bottom-bar-h) + max(1rem, env(safe-area-inset-bottom)))" }}
         >
           <ChatIcon />
@@ -120,7 +120,7 @@ export function ChatWidget() {
           </header>
 
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4" data-testid="chat-messages">
-            {chat.messages.length === 0 && <Welcome />}
+            {chat.messages.length === 0 && <Welcome onAsk={(q) => void chat.send(q)} />}
             {chat.messages.map((m) => (
               <MessageBubble
                 key={m.id}
@@ -193,13 +193,39 @@ export function ChatWidget() {
   );
 }
 
-function Welcome() {
+const STARTERS = [
+  "Which vegetarian pizzas do you have?",
+  "Add a large Margherita to my cart",
+  "Where's order US-1002?",
+  "How much is delivery?",
+];
+
+function Welcome({ onAsk }: { onAsk: (question: string) => void }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-card">
-      <p className="font-display text-lg font-bold">Hi! I&apos;m the US Pizza Demo assistant. 🍕</p>
-      <p className="mt-1 text-sm text-ink-soft">
-        Ask me about the menu, allergens, delivery, your order, or anything else. I can also add things to your cart.
-      </p>
+    <div className="space-y-3">
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <p className="font-display text-lg font-bold">Hi! I&apos;m the US Pizza Demo assistant. 🍕</p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Ask me about the menu, allergens, delivery, your order, or anything else. I can also add things to your
+          cart.
+        </p>
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-semibold text-ink-soft">Try asking</p>
+        <ul className="flex flex-wrap gap-2">
+          {STARTERS.map((q) => (
+            <li key={q}>
+              <button
+                type="button"
+                onClick={() => onAsk(q)}
+                className="min-h-11 rounded-full border border-line bg-white px-3.5 py-2 text-left text-sm font-medium hover:border-ink"
+              >
+                {q}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

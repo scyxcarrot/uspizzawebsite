@@ -122,9 +122,11 @@ function ItemDialogBody({ item, onClose }: { item: MenuItem; onClose: () => void
         <button
           type="button"
           onClick={handleAdd}
-          className="flex min-h-12 flex-1 items-center justify-between gap-2 rounded-full bg-brand px-5 font-bold text-white hover:bg-brand-dark"
+          className="flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 whitespace-nowrap rounded-full bg-brand px-4 font-bold text-white hover:bg-brand-dark sm:px-5"
         >
-          <span>Add to cart</span>
+          <span>
+            Add<span className="max-[389px]:sr-only"> to cart</span>
+          </span>
           <span className="tabular-nums" data-testid="dialog-total">
             {formatRM(total)}
           </span>

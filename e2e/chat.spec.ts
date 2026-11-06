@@ -15,6 +15,7 @@ test.describe("chat widget (mock mode)", () => {
   test("a chat request adds to the cart, and cart and chat survive a refresh", async ({ page }, testInfo) => {
     await page.goto("/");
     await openChat(page);
+    await screenshot(page, testInfo, "chat-empty");
     await ask(page, "Add two large pepperoni pizzas");
 
     await expect(page.getByTestId("chat-cart-note")).toHaveText(/Added to cart: 2 × Large Beef Pepperoni \(Hand-Tossed\)/);

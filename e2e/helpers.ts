@@ -41,6 +41,7 @@ export async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({
     path: `screenshots/${testInfo.project.name}/${name}.png`,
     fullPage: false,
+    animations: "disabled",
   });
 }
 
