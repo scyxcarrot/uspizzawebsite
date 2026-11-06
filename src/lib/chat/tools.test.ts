@@ -179,6 +179,31 @@ describe("cart tools", () => {
     const cart = start.ok ? start.cart : [];
     const { result } = await runTool("get_cart", {}, ctx({ cart }));
     expect(result.cart).toMatchObject({ subtotal: "RM 40.00", delivery_fee: "RM 5.00", total: "RM 45.00" });
+    expect(result.cart).not.toHaveProperty("delivery_minimum_note");
+  });
+
+  it("tells the model when a delivery cart is below the RM 20 minimum", async () => {
+    const start = addToCart([], { itemId: "cola", quantity: 1 });
+    const cart = start.ok ? start.cart : [];
+    const { result } = await runTool("get_cart", {}, ctx({ cart }));
+    expect(result.cart).toMatchObject({ meets_delivery_minimum: false, total: "RM 10.00" });
+    const note = String((result.cart as Record<string, unknown>).delivery_minimum_note);
+    expect(note).toContain("at least RM 20.00");
+    expect(note).toContain("Add RM 15.00 more");
+    expect(note).toMatch(/pickup/);
+  });
+
+  it("also tells the model right after a cart change that leaves it below the minimum", async () => {
+    const out = await runTool("add_to_cart", { item: "cola", quantity: 1 }, ctx());
+    expect(JSON.stringify(out.result)).toContain("at least RM 20.00");
+  });
+
+  it("leaves pickup carts unaffected", async () => {
+    const start = addToCart([], { itemId: "cola", quantity: 1 });
+    const cart = start.ok ? start.cart : [];
+    const { result } = await runTool("get_cart", {}, ctx({ cart, fulfilment: "pickup" }));
+    expect(result.cart).toMatchObject({ meets_delivery_minimum: true, delivery_fee: "RM 0.00", total: "RM 5.00" });
+    expect(result.cart).not.toHaveProperty("delivery_minimum_note");
   });
 });
 

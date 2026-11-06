@@ -350,6 +350,12 @@ export function cartForModel(cart: CartLine[], fulfilment: Fulfilment) {
     delivery_fee: formatRM(s.deliveryFeeSen),
     total: formatRM(s.totalSen),
     meets_delivery_minimum: s.meetsMinimum,
+    // Only for delivery carts below the minimum. Pickup has no minimum.
+    ...(s.meetsMinimum
+      ? {}
+      : {
+          delivery_minimum_note: `Delivery needs a food subtotal of at least ${formatRM(STORE.delivery.minimumOrderSen)}. Add ${formatRM(s.amountToMinimumSen)} more, or choose pickup. Tell the customer this whenever you give the total or link to checkout.`,
+        }),
     checkout_link: "/checkout",
   };
 }

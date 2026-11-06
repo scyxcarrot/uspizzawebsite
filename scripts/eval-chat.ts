@@ -62,6 +62,13 @@ const PIZZAS = [
 
 const UNPROMPTED_DEMO_NOTICE = /not an? official|this is (just |only )?a demo\b|demo (site|website)\b/i;
 
+/** A delivery cart under the minimum: any total or checkout link must mention the minimum. */
+const mentionsMinimumIfNeeded = (r: Reply) => {
+  if (priceCart(r.cartAfter, "delivery").meetsMinimum) return true;
+  const givesTotalOrCheckout = /total|\/checkout/i.test(r.text);
+  return !givesTotalOrCheckout || /minimum|RM\s?20(\.00)?\b/i.test(r.text);
+};
+
 const has = (t: string, ...words: (string | RegExp)[]) =>
   words.every((w) => (typeof w === "string" ? t.toLowerCase().includes(w.toLowerCase()) : w.test(t)));
 const usedAny = (r: Reply, ...tools: string[]) => tools.some((t) => r.tools.includes(t));
@@ -208,6 +215,7 @@ const CASES: Case[] = [
       all(
         [!r.cartAfter.some((l) => l.itemId === "beef-pepperoni"), "pepperoni still in cart"],
         [r.cartAfter.some((l) => l.itemId === "cola" && l.quantity === 1), "cola not added"],
+        [mentionsMinimumIfNeeded(r), "gives a total or checkout link without mentioning the RM 20 delivery minimum"],
       ),
   },
   {
@@ -217,7 +225,11 @@ const CASES: Case[] = [
     cartIfResumed: ONE_COLA,
     check: (r) => {
       const total = formatRM(priceCart(r.cartAfter, "delivery").totalSen).replace("RM ", "");
-      return all([usedAny(r, "get_cart"), "get_cart not used"], [r.text.includes(total), `total ${total} not found`]);
+      return all(
+        [usedAny(r, "get_cart"), "get_cart not used"],
+        [r.text.includes(total), `total ${total} not found`],
+        [mentionsMinimumIfNeeded(r), "gives a total or checkout link without mentioning the RM 20 delivery minimum"],
+      );
     },
   },
   {

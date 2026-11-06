@@ -1,0 +1,52 @@
+[
+  {
+    "n": 4,
+    "q": "How much is a large Seafood Deluxe with cheese-stuffed crust?",
+    "expect": "RM51",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "get_item",
+    "ms": 2736,
+    "reply": "A large Seafood Deluxe pizza is RM 46.00, and adding the cheese-stuffed crust is an extra RM 5.00, making the total RM 51.00. \n\nWould you like me to add this to your cart for you?"
+  },
+  {
+    "n": 12,
+    "q": "Add two large pepperoni pizzas",
+    "expect": "Adds 2 × Large Beef Pepperoni with Hand-Tossed crust and states the default",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "add_to_cart",
+    "ms": 2368,
+    "reply": "I've added two large Beef Pepperoni pizzas to your cart. They are set to the Hand-Tossed crust by default, but let me know if you would like to change that!\n\nYour current total is RM 78.00. You can [Go to checkout](/checkout) whenever you're ready."
+  },
+  {
+    "n": 13,
+    "q": "Add a pizza",
+    "expect": "Asks which pizza and size, and does not change the cart",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "-",
+    "ms": 1122,
+    "reply": "Sure! Which pizza would you like to add? Please also let me know what size you would like (Regular or Large)."
+  },
+  {
+    "n": 14,
+    "q": "Remove the pepperoni and add a Cola",
+    "expect": "Cart is updated correctly in one turn",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "get_cart,update_cart,search_menu,add_to_cart",
+    "ms": 5450,
+    "reply": "I've updated your cart: I removed the Beef Pepperoni and added a Cola.\n\nYour current subtotal is RM 5.00 and the total is RM 10.00. Please note that delivery needs a food subtotal of at least RM 20.00. You'll need to add RM 15.00 more, or you can choose pickup.\n\nWhen you're ready, you can [Go to checkout](/checkout)."
+  },
+  {
+    "n": 15,
+    "q": "What's in my cart and what's the total?",
+    "expect": "Matches the calculated cart",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "get_cart",
+    "ms": 2074,
+    "reply": "Your cart contains:\n- 1 x Cola (RM 5.00)\n\nThe subtotal is RM 5.00, and with the RM 5.00 delivery fee, your total is RM 10.00.\n\nPlease note that delivery requires a food subtotal of at least RM 20.00. You need to add RM 15.00 more to your cart, or you can choose to pick up your order instead. You can [Go to checkout](/checkout) when you are ready."
+  }
+]

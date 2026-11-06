@@ -92,7 +92,7 @@ I first used `gemini-3.6-flash`. It answered well, but the free tier allows it o
 - Each fallback call counts toward the daily cap.
 - The server log also records how long each model call took, which makes slow replies easy to diagnose.
 
-Before turning it on, I ran the cart and price questions (#4, #12 to #15) directly on `gemini-3.1-flash-lite`. All 5 passed (see Test results). I also checked a switch in the middle of a reply live: `gemini-3.5-flash-lite` added the pizzas, the next call was made to fail with a simulated quota error, and `gemini-3.1-flash-lite` finished the reply with the cart changed exactly once.
+Before turning it on, I ran the cart and price questions (#4, #12 to #15) directly on `gemini-3.1-flash-lite`, and ran them again after the latest prompt changes. All 5 passed both times (see Test results). I also checked a switch in the middle of a reply live: `gemini-3.5-flash-lite` added the pizzas, the next call was made to fail with a simulated quota error, and `gemini-3.1-flash-lite` finished the reply with the cart changed exactly once.
 
 **Daily cap.** The server stops calling Gemini after `GEMINI_DAILY_REQUEST_CAP` requests a day (default 300, about 100 to 150 questions). That leaves part of the 500 free requests for testing, and it means reviewers see a friendly "back tomorrow" message rather than raw quota errors. The count resets at midnight US Pacific time, when Google resets its quota. It is kept in server memory, so it is **best-effort on serverless hosting**: each instance keeps its own count, and a cold start resets it.
 
@@ -161,6 +161,7 @@ Gemini reads the question and chooses a tool. There is no separate classifier.
 Safety rules in the system prompt and the code:
 - The model never sees prices it could change. Cart changes go through the same validated functions as the website.
 - Missing details are asked for (for example the pizza size). Only the crust has a default (Hand-Tossed), and the assistant says so.
+- If a delivery cart is below the RM 20.00 minimum, the cart tools tell the assistant how much more is needed, and it mentions this whenever it gives the total or links to checkout. Pickup has no minimum, so pickup carts get no such note.
 - Allergen answers list allergens and mention cross-contact; they never promise an item is safe.
 - Halal questions get: this demo has no certification information, please check with the store.
 - The site shows a permanent demo label, so the assistant mentions the demo only when asked or when it matters (for example, "will this really be delivered?"). The evaluation fails any reply that adds the notice unprompted.
@@ -222,7 +223,7 @@ Run on 6 and 7 November 2026 on Windows 11, Node 22.18. The raw replies for each
 |---|---|
 | `npm run lint` | Passed, no warnings |
 | `npm run typecheck` | Passed |
-| `npm test` (Vitest) | **134 / 134 passed.** Covers pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
+| `npm test` (Vitest) | **137 / 137 passed.** Covers pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, the chatbot's delivery-minimum note (and none for pickup), checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
 | `npm run test:e2e` (Playwright) | **56 / 56 passed** (14 tests at each of the 4 sizes): full order from menu to tracking, chat adding to the cart (mock mode), no sideways scrolling, chat button not overlapping controls, cart and chat surviving a refresh, resizing, keyboard use, and failure messages (missing key, rate limit, network failure) with ordering still working |
 | Function calling and streaming | Confirmed live on `gemini-3.5-flash-lite`: the model called `get_item` and the reply arrived in several streamed chunks |
 | Invalid API key | Checked against the real Gemini API with a fake key: the browser gets the friendly message, the raw error stays in the server log |
@@ -265,19 +266,27 @@ Model `gemini-3.5-flash-lite`, free-tier key, all 20 questions in one run, 10 se
 - When web search is unavailable, the assistant says this demo can't check live information and suggests a source, instead of calling it a temporary problem. The evaluation fails any reply that calls it temporary.
 - The assistant no longer adds the demo notice to unrelated answers (the first run added it to #9). The evaluation now fails any reply that does.
 
+**Delivery minimum.** After the full run above, the assistant was changed to mention the RM 20.00 delivery minimum when a delivery cart is below it. The evaluation now fails #14 or #15 if a reply gives the total or a checkout link without mentioning it. Questions #12, #14 and #15 were run again on `gemini-3.5-flash-lite`: **3 / 3 PASS** ([replies](docs/eval-results/2026-11-07-0021-delivery-minimum-check-gemini-3.5-flash-lite.json)).
+
+| # | Question | Result | What it answered |
+|---|---|---|---|
+| 12 | Add two large pepperoni pizzas | PASS | 2 × Large Beef Pepperoni with the default Hand-Tossed crust, and a checkout link (RM 78.00 is above the minimum, so no note) |
+| 14 | Remove the pepperoni and add a Cola | PASS | Both changes; "delivery needs a food subtotal of at least RM 20.00 (you need RM 15.00 more, or you can choose pickup)" before the checkout link |
+| 15 | What's in my cart and what's the total? | PASS | 1 × Cola, total RM 10.00 including RM 5.00 delivery, then the same minimum note |
+
 ### Fallback model check (`gemini-3.1-flash-lite`)
 
-The cart and price questions, run directly on the fallback model (no fallback involved). **5 / 5 PASS.** The server log confirmed each reply came from `gemini-3.1-flash-lite`.
+The cart and price questions, run directly on the fallback model (no fallback involved), with the current prompt (7 November, 00:22). **5 / 5 PASS.** The server log confirmed each reply came from `gemini-3.1-flash-lite`; each model call took 0.6 to 1.6 seconds. No reply added a demo notice. Replies: [`2026-11-07-0022-fallback-check-gemini-3.1-flash-lite.json`](docs/eval-results/2026-11-07-0022-fallback-check-gemini-3.1-flash-lite.json).
 
 | # | Question | Result | Tools used | What it answered |
 |---|---|---|---|---|
 | 4 | Large Seafood Deluxe with cheese-stuffed crust? | PASS | get_item | RM 46.00 + RM 5.00 = RM 51.00 |
-| 12 | Add two large pepperoni pizzas | PASS | add_to_cart | 2 × Large Beef Pepperoni, Hand-Tossed, said the crust can be changed; total RM 78.00 |
+| 12 | Add two large pepperoni pizzas | PASS | add_to_cart | 2 × Large Beef Pepperoni, Hand-Tossed by default, said it can be changed; total RM 78.00 |
 | 13 | Add a pizza | PASS | none | Asked which pizza and which size; cart unchanged |
-| 14 | Remove the pepperoni and add a Cola | PASS | get_cart, update_cart, search_menu, add_to_cart | Both changes; RM 5.00 + RM 5.00 delivery = RM 10.00 |
-| 15 | What's in my cart and what's the total? | PASS | get_cart | 1 × Cola, subtotal RM 5.00, delivery RM 5.00, total RM 10.00 |
+| 14 | Remove the pepperoni and add a Cola | PASS | get_cart, update_cart, search_menu, add_to_cart | Both changes; total RM 10.00; mentioned the RM 20.00 minimum (RM 15.00 more, or pickup) |
+| 15 | What's in my cart and what's the total? | PASS | get_cart | 1 × Cola, subtotal RM 5.00, delivery RM 5.00, total RM 10.00; mentioned the minimum |
 
-Replies: [`2026-11-06-2348-fallback-check-gemini-3.1-flash-lite.json`](docs/eval-results/2026-11-06-2348-fallback-check-gemini-3.1-flash-lite.json). This run was before the prompt fixes above, so #4 still added the demo notice.
+The first fallback check (6 November, 23:48, before the prompt fixes) also passed 5 / 5, but #4 added the demo notice: [`2026-11-06-2348-fallback-check-gemini-3.1-flash-lite.json`](docs/eval-results/2026-11-06-2348-fallback-check-gemini-3.1-flash-lite.json).
 
 **Slow reply on #15 (22 seconds).** This was not a rate-limit wait: the evaluation script prints a message whenever it waits, the server logged no rate-limit error, and the Gemini SDK does not retry unless told to (this app doesn't). It was Gemini itself responding slowly. To confirm, I added per-call timings to the server log and asked #15 three more times on `gemini-3.1-flash-lite`: two replies took 4 to 5 seconds (each model call 1 to 3.5 seconds), and one model call stalled until the app's 25-second limit, so the customer would have seen "The assistant took too long to reply. Please try again." Slow replies are not quota errors, so they don't trigger the fallback. In the full run on `gemini-3.5-flash-lite`, every reply took under 3.5 seconds.
 
