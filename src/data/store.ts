@@ -53,7 +53,7 @@ export const STORE = {
       "Our kitchen handles gluten, dairy, egg, soy, nuts and seafood, so cross-contact is possible with any item. Each menu item lists its known allergens. If you have a serious allergy, please check with the store before ordering.",
   },
   halal: {
-    summary: "This demo has no halal certification information.",
+    summary: "This demo has no halal certification information. Please check with the store directly.",
   },
 } as const;
 

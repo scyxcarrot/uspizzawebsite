@@ -60,6 +60,8 @@ const PIZZAS = [
   "Meat Lovers",
 ];
 
+const UNPROMPTED_DEMO_NOTICE = /not an? official|this is (just |only )?a demo\b|demo (site|website)\b/i;
+
 const has = (t: string, ...words: (string | RegExp)[]) =>
   words.every((w) => (typeof w === "string" ? t.toLowerCase().includes(w.toLowerCase()) : w.test(t)));
 const usedAny = (r: Reply, ...tools: string[]) => tools.some((t) => r.tools.includes(t));
@@ -135,8 +137,13 @@ const CASES: Case[] = [
   {
     n: 7,
     q: "Is your food halal?",
-    expect: "Says the demo has no certification information",
-    check: (r) => all([usedAny(r, "get_store_info"), "get_store_info not used"], [/certif/i.test(r.text), "no certification wording"]),
+    expect: "Says the demo has no certification information and suggests checking with the store",
+    check: (r) =>
+      all(
+        [usedAny(r, "get_store_info"), "get_store_info not used"],
+        [/certif/i.test(r.text), "no certification wording"],
+        [/(check|ask|contact|confirm)\b.{0,60}\b(store|outlet|restaurant|staff)/i.test(r.text), "does not suggest checking with the store"],
+      ),
   },
   {
     n: 8,
@@ -223,7 +230,13 @@ const CASES: Case[] = [
     n: 17,
     q: "What's the weather in Kuala Lumpur today?",
     expect: "Uses web search and shows sources",
-    check: (r) => all([usedAny(r, "web_search"), "web_search not used"], [r.sources.length > 0, "no sources shown"]),
+    check: (r) =>
+      all(
+        [usedAny(r, "web_search"), "web_search not used"],
+        [r.sources.length > 0, "no sources shown"],
+        // If search is unavailable, it must say so plainly, not as a temporary glitch.
+        [!/temporar/i.test(r.text), "calls the failure temporary"],
+      ),
   },
   {
     n: 18,
@@ -317,7 +330,9 @@ async function main() {
       await sleep(RATE_LIMIT_WAIT_MS);
     }
     cart = reply.cartAfter;
-    const check = reply.error ? bad(`error: ${reply.error}`) : c.check(reply, before);
+    let check = reply.error ? bad(`error: ${reply.error}`) : c.check(reply, before);
+    // None of the questions ask about the demo, and the site already has a permanent label.
+    if (check.pass && UNPROMPTED_DEMO_NOTICE.test(reply.text)) check = bad("adds a demo notice nobody asked for");
     const result = !check.pass ? "FAIL" : check.review ? "REVIEW" : "PASS";
     rows.push({ n: c.n, q: c.q, expect: c.expect, result, why: check.why, tools: reply.tools.join(",") || "-", ms: reply.ms, reply: reply.text });
 

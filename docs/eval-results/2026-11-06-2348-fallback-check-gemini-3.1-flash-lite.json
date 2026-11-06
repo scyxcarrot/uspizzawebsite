@@ -1,0 +1,52 @@
+[
+  {
+    "n": 4,
+    "q": "How much is a large Seafood Deluxe with cheese-stuffed crust?",
+    "expect": "RM51",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "get_item",
+    "ms": 4024,
+    "reply": "A large Seafood Deluxe pizza costs RM 46.00, and adding a cheese-stuffed crust is an additional RM 5.00, for a total of RM 51.00. \n\nPlease note that this is a demo and not an official ordering channel. Would you like me to add this to your cart?"
+  },
+  {
+    "n": 12,
+    "q": "Add two large pepperoni pizzas",
+    "expect": "Adds 2 × Large Beef Pepperoni with Hand-Tossed crust and states the default",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "add_to_cart",
+    "ms": 2703,
+    "reply": "I've added two large Beef Pepperoni pizzas to your cart. They are prepared with hand-tossed crust by default, but you can change that if you'd like!\n\nYour total is RM 78.00. Ready to proceed? [Go to checkout](/checkout)"
+  },
+  {
+    "n": 13,
+    "q": "Add a pizza",
+    "expect": "Asks which pizza and size, and does not change the cart",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "-",
+    "ms": 2440,
+    "reply": "Sure! Which pizza would you like to add? Please also let me know what size (Regular or Large) you would like."
+  },
+  {
+    "n": 14,
+    "q": "Remove the pepperoni and add a Cola",
+    "expect": "Cart is updated correctly in one turn",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "get_cart,update_cart,search_menu,add_to_cart",
+    "ms": 10691,
+    "reply": "I have removed the pepperoni pizza from your cart and added 1 Cola (RM 5.00).\n\nYour current total is RM 10.00 (including the delivery fee). When you're ready, you can [Go to checkout](/checkout)."
+  },
+  {
+    "n": 15,
+    "q": "What's in my cart and what's the total?",
+    "expect": "Matches the calculated cart",
+    "result": "PASS",
+    "why": "ok",
+    "tools": "get_cart",
+    "ms": 22373,
+    "reply": "Your cart currently contains:\n\n- 1 x Cola (RM 5.00)\n\nYour subtotal is RM 5.00. With the delivery fee of RM 5.00, your total comes to RM 10.00.\n\n[Go to checkout](/checkout)"
+  }
+]

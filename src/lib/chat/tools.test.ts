@@ -116,6 +116,7 @@ describe("get_store_info", () => {
   it("returns the halal and refund policy text", async () => {
     const halal = await runTool("get_store_info", { topic: "halal" }, ctx());
     expect(JSON.stringify(halal.result)).toContain("no halal certification information");
+    expect(JSON.stringify(halal.result)).toContain("check with the store");
     const all = await runTool("get_store_info", { topic: "all" }, ctx());
     expect(JSON.stringify(all.result)).toContain("within 24 hours");
   });
@@ -192,9 +193,13 @@ describe("web_search", () => {
     const out = await runTool(
       "web_search",
       { query: "news" },
-      ctx({ webSearch: async () => ({ ok: false, error: "Live information could not be checked." }) }),
+      ctx({ webSearch: async () => ({ ok: false, error: "This demo can't check live information right now." }) }),
     );
     expect(out.result.ok).toBe(false);
-    expect(String(out.result.instruction)).toMatch(/could not be checked/);
+    expect(out.sources).toBeUndefined();
+    const instruction = String(out.result.instruction);
+    expect(instruction).toMatch(/this demo can't check live information right now/);
+    expect(instruction).toMatch(/suggest a suitable source/);
+    expect(instruction).toMatch(/do not guess/i);
   });
 });

@@ -413,7 +413,8 @@ async function webSearchTool(args: { query: string }, ctx: ToolContext): Promise
       result: {
         ok: false,
         error: res.error,
-        instruction: "Tell the customer live information could not be checked right now. Do not guess current facts.",
+        instruction:
+          "Tell the customer this demo can't check live information right now (do not call it temporary), and suggest a suitable source they can check themselves. Do not guess current facts.",
       },
     };
   }

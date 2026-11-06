@@ -67,6 +67,7 @@ export async function runChatTurn(args: {
   // The model for this turn. It switches to the fallback (for the rest of the
   // turn) only when the main model returns a rate-limit or quota error.
   let model = config.chatModel;
+  const timings: string[] = []; // per model call, for the server log
   const fallback = config.fallbackModel && config.fallbackModel !== config.chatModel ? config.fallbackModel : undefined;
 
   /** One streamed model call. Tools are NOT run here, so retrying it never repeats a cart change. */
@@ -75,6 +76,7 @@ export async function runChatTurn(args: {
       const parts: Part[] = [];
       const calls: FunctionCall[] = [];
       let wroteText = false;
+      const started = Date.now();
       try {
         const stream = await ai.models.generateContentStream({
           model: modelName,
@@ -100,9 +102,11 @@ export async function runChatTurn(args: {
           }
         }
       } catch (err) {
+        timings.push(`${modelName} failed after ${Date.now() - started}ms`);
         // Text already on screen: a retry would restart or duplicate the reply.
         throw wroteText ? new FailedAfterText(err) : err;
       }
+      timings.push(`${Date.now() - started}ms`);
       return { parts, calls, wroteText };
     });
 
@@ -135,6 +139,7 @@ export async function runChatTurn(args: {
         }
         if (sources.length) emit({ type: "sources", sources: dedupeSources(sources) });
         console.info(`[chat] answered by ${model}`);
+        console.info(`[chat] model calls: ${timings.join(", ")}`);
         emit({ type: "done" });
         return;
       }
@@ -159,7 +164,7 @@ export async function runChatTurn(args: {
     emit({ type: "error", code: f.code, message: f.message, retryable: f.retryable });
   } catch (caught) {
     const err = caught instanceof FailedAfterText ? caught.original : caught;
-    console.error(`[chat] Gemini request failed (model ${model}):`, err);
+    console.error(`[chat] Gemini request failed (model ${model}; calls: ${timings.join(", ") || "none"}):`, err);
     // Includes a rate-limit error after text has streamed: no fallback then,
     // just the normal "please try again" message.
     const f = classifyError(err);
@@ -178,7 +183,7 @@ export async function webSearch(
   parent?: AbortSignal,
 ): Promise<WebSearchResult> {
   if (!geminiDailyCap.tryConsume()) {
-    return { ok: false, error: "Live information could not be checked: the assistant's daily limit has been reached." };
+    return { ok: false, error: "This demo can't check live information right now (daily limit reached)." };
   }
   try {
     return await withTimeout(LIMITS.searchTimeoutMs, parent, async (abortSignal) => {
@@ -194,12 +199,12 @@ export async function webSearch(
           .map((c) => ({ title: c.web?.title ?? c.web?.domain ?? "Source", url: c.web?.uri ?? "" }))
           .filter((s) => s.url.startsWith("https://")),
       ).slice(0, 5);
-      if (!answer) return { ok: false, error: "Live information could not be checked." };
+      if (!answer) return { ok: false, error: "This demo can't check live information right now." };
       return { ok: true, answer, sources };
     });
   } catch (err) {
     console.error("[chat] web_search failed:", err);
-    return { ok: false, error: "Live information could not be checked right now." };
+    return { ok: false, error: "This demo can't check live information right now." };
   }
 }
 
