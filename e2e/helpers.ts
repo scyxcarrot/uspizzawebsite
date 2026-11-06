@@ -1,0 +1,53 @@
+import { expect, type Page, type TestInfo } from "@playwright/test";
+
+export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1440) < 768;
+
+/** Open the cart: the fixed "View cart" bar on phones, the header button elsewhere. */
+export async function openCart(page: Page) {
+  if (isPhone(page)) {
+    await page.getByTestId("view-cart-bar").getByRole("button", { name: /view cart/i }).click();
+  } else {
+    await page.getByTestId("header-cart").click();
+  }
+  await expect(page.getByTestId("cart-panel")).toBeVisible();
+}
+
+export async function addPizza(page: Page, id: string, size: "Regular" | "Large", crust?: string) {
+  await page.getByTestId(`item-${id}`).click();
+  const dialog = page.getByTestId("item-dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("radio", { name: new RegExp(`^${size}`) }).check();
+  if (crust) await dialog.getByRole("radio", { name: new RegExp(`^${crust}`) }).check();
+  await dialog.getByRole("button", { name: /add to cart/i }).click();
+  await expect(dialog).toBeHidden();
+}
+
+export async function addSimple(page: Page, id: string) {
+  await page.getByTestId(`item-${id}`).click();
+  const dialog = page.getByTestId("item-dialog");
+  await dialog.getByRole("button", { name: /add to cart/i }).click();
+  await expect(dialog).toBeHidden();
+}
+
+export async function expectNoHorizontalScroll(page: Page) {
+  const overflow = await page.evaluate(() => {
+    const doc = document.documentElement;
+    return doc.scrollWidth - doc.clientWidth;
+  });
+  expect(overflow, "page should not scroll sideways").toBeLessThanOrEqual(0);
+}
+
+export async function screenshot(page: Page, testInfo: TestInfo, name: string) {
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/${name}.png`,
+    fullPage: false,
+  });
+}
+
+/** Boxes overlap if they intersect by more than a pixel. */
+export function overlaps(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+) {
+  return a.x < b.x + b.width - 1 && b.x < a.x + a.width - 1 && a.y < b.y + b.height - 1 && b.y < a.y + a.height - 1;
+}
