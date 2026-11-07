@@ -4,7 +4,7 @@
 
 **Live demo:** https://uspizzawebsite.vercel.app (Vercel Hobby plan, Singapore region)
 
-## 1. What this is, in plain English
+## 1. Introduction
 
 A small pizza ordering website, using made-up menu and order data, with an AI assistant built in. You can browse the menu, choose a pizza size and crust, fill a cart, check out (no real payment), and watch a pretend order move from "Order received" to "Delivered".
 
