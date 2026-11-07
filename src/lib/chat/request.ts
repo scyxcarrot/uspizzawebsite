@@ -26,6 +26,8 @@ export const chatRequestSchema = z.object({
   cart: z.unknown().optional(),
   orders: z.unknown().optional(),
   fulfilment: z.enum(["delivery", "pickup"]).optional(),
+  /** The group order plan shown most recently and not yet added (rebuilt from the menu). */
+  pendingPlan: z.unknown().optional(),
 });
 
 export type ChatRequest = {
@@ -33,6 +35,7 @@ export type ChatRequest = {
   cart: CartLine[];
   orders: Order[];
   fulfilment: Fulfilment;
+  pendingPlan: CartLine[];
 };
 
 export type ParseResult = { ok: true; data: ChatRequest } | { ok: false; error: string };
@@ -52,6 +55,7 @@ export function parseChatRequest(body: unknown): ParseResult {
       cart: sanitizeCart(parsed.data.cart),
       orders: sanitizeBrowserOrders(parsed.data.orders),
       fulfilment: parsed.data.fulfilment ?? "delivery",
+      pendingPlan: sanitizeCart(parsed.data.pendingPlan),
     },
   };
 }

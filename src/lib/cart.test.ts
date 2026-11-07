@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_QUANTITY_PER_LINE,
+  addLinesToCart,
   addToCart,
   describeLine,
   removeCartLine,
@@ -154,5 +155,35 @@ describe("describeLine", () => {
       "Large Seafood Deluxe (Cheese-Stuffed)",
     );
     expect(describeLine({ itemId: "cola" })).toBe("Cola");
+  });
+});
+
+describe("addLinesToCart", () => {
+  const plan: CartLine[] = [
+    { lineId: "margherita:large:hand-tossed", itemId: "margherita", size: "large", crust: "hand-tossed", quantity: 1 },
+    { lineId: "cola", itemId: "cola", quantity: 3 },
+  ];
+
+  it("adds every line and merges with what is already in the cart", () => {
+    const start = mustAdd([], { itemId: "cola", quantity: 1 }).cart;
+    const r = addLinesToCart(start, plan);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.cart).toEqual([
+      { lineId: "cola", itemId: "cola", quantity: 4 },
+      { lineId: "margherita:large:hand-tossed", itemId: "margherita", size: "large", crust: "hand-tossed", quantity: 1 },
+    ]);
+    expect(r.message).toBe("Added to cart: 4 items from the group order");
+  });
+
+  it("is all or nothing when a line would go over a limit", () => {
+    const start = mustAdd([], { itemId: "cola", quantity: MAX_QUANTITY_PER_LINE - 1 }).cart;
+    const r = addLinesToCart(start, plan);
+    expect(r.ok).toBe(false);
+    expect(start).toEqual([{ lineId: "cola", itemId: "cola", quantity: MAX_QUANTITY_PER_LINE - 1 }]);
+  });
+
+  it("refuses an empty plan", () => {
+    expect(addLinesToCart([], []).ok).toBe(false);
   });
 });

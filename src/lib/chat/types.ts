@@ -1,6 +1,7 @@
 // Types shared by the /api/chat route and the browser chat widget.
 
 import type { CartLine } from "@/lib/cart";
+import type { ChatCard } from "@/lib/chat/cards";
 
 export type Source = { title: string; url: string };
 
@@ -8,7 +9,10 @@ export type Source = { title: string; url: string };
 export type ChatEvent =
   | { type: "status"; text: string; tool?: string }
   | { type: "text"; delta: string }
-  | { type: "cart"; cart: CartLine[]; message: string }
+  /** planAdded: the cart change added the proposed group order plan. */
+  | { type: "cart"; cart: CartLine[]; message: string; planAdded?: boolean }
+  /** Structured data built by code from a tool result, drawn by the browser. */
+  | { type: "card"; card: ChatCard }
   | { type: "sources"; sources: Source[] }
   | { type: "error"; code: ChatErrorCode; message: string; retryable: boolean }
   | { type: "done" };
@@ -35,5 +39,6 @@ export type ChatMessage = {
   sources?: Source[];
   /** Cart confirmations shown under an assistant reply, e.g. "Added to cart: 1 × Cola". */
   cartNotes?: string[];
+  cards?: ChatCard[];
   error?: { message: string; retryable: boolean };
 };

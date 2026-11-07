@@ -6,9 +6,11 @@ import { z } from "zod";
 import { CATEGORIES, DIETARY_TAGS, MENU, findMenuItem, startingPrice, type MenuItem } from "@/data/menu";
 import { SEEDED_ORDERS } from "@/data/orders";
 import { STORE, STORE_TOPICS } from "@/data/store";
-import { CRUST_IDS, SIZE_IDS, addToCart, describeLine, updateCartLine, type CartLine } from "@/lib/cart";
+import { CRUST_IDS, SIZE_IDS, addLinesToCart, addToCart, describeLine, updateCartLine, type CartLine } from "@/lib/cart";
+import { planCard, type ChatCard } from "@/lib/chat/cards";
 import { formatRM } from "@/lib/money";
 import { findOrder, getOrderStatus, normaliseOrderId, statusLabel, type Order } from "@/lib/orders";
+import { MAX_PEOPLE, PLAN_RULE, planOrder } from "@/lib/planner";
 import { crustName, priceCart, type Fulfilment } from "@/lib/pricing";
 import type { Source } from "@/lib/chat/types";
 
@@ -97,6 +99,35 @@ export const TOOL_DECLARATIONS = [
     },
   },
   {
+    name: "plan_order",
+    description:
+      "Plan a group order, e.g. 'feed 6 people under RM120, 2 are vegetarian, no beef'. Code builds the basket from a fixed portion rule and never exceeds the budget. Nothing is added to the cart.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        people: { type: "integer", minimum: 1, maximum: MAX_PEOPLE },
+        budget_rm: { type: "number", description: "Most the customer wants to spend in total, in ringgit, including delivery." },
+        vegetarians: { type: "integer", minimum: 0, description: "How many of the people are vegetarian." },
+        exclude: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tags, allergens or ingredients to leave out, e.g. ['beef'], ['seafood', 'nuts'].",
+        },
+        spicy: { type: "boolean", description: "true: include a spicy pizza. false: no spicy food. Leave out if not mentioned." },
+        sides: { type: "boolean", description: "false if the customer does not want sides." },
+        drinks: { type: "boolean", description: "false if the customer does not want drinks." },
+        dessert: { type: "boolean", description: "true if the customer wants dessert." },
+      },
+      required: ["people"],
+    },
+  },
+  {
+    name: "add_plan_to_cart",
+    description:
+      "Add the group order plan you proposed most recently to the cart. Only call this after the customer clearly says yes to that plan.",
+    parametersJsonSchema: { type: "object", properties: {} },
+  },
+  {
     name: "web_search",
     description:
       "Search the web for current information such as weather, news, sports results, or prices elsewhere. Returns a short answer and sources.",
@@ -118,6 +149,8 @@ export const TOOL_STATUS: Record<ToolName, string> = {
   get_cart: "Checking your cart…",
   add_to_cart: "Updating your cart…",
   update_cart: "Updating your cart…",
+  plan_order: "Planning your group order…",
+  add_plan_to_cart: "Updating your cart…",
   web_search: "Searching the web…",
 };
 
@@ -148,6 +181,20 @@ export const TOOL_INPUT_SCHEMAS = {
     })
     .strict(),
   update_cart: z.object({ line_id: text(100), quantity: z.number().int().min(0).max(20) }).strict(),
+  plan_order: z
+    .object({
+      people: z.number().int().min(1).max(MAX_PEOPLE),
+      budget_rm: z.number().positive().max(10_000).optional(),
+      vegetarians: z.number().int().min(0).max(MAX_PEOPLE).optional(),
+      exclude: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
+      spicy: z.boolean().optional(),
+      sides: z.boolean().optional(),
+      drinks: z.boolean().optional(),
+      dessert: z.boolean().optional(),
+    })
+    .strict()
+    .refine((a) => (a.vegetarians ?? 0) <= a.people, { message: "vegetarians cannot be more than people" }),
+  add_plan_to_cart: z.object({}).strict(),
   web_search: z.object({ query: text(300) }).strict(),
 } satisfies Record<ToolName, z.ZodType>;
 
@@ -161,6 +208,8 @@ export type ToolContext = {
   browserOrders: Order[];
   now: Date;
   webSearch: (query: string) => Promise<WebSearchResult>;
+  /** The group order plan shown most recently and not yet added. */
+  pendingPlan?: CartLine[];
 };
 
 export type ToolOutcome = {
@@ -169,7 +218,11 @@ export type ToolOutcome = {
   /** Set when the cart changed. Later tools in the same turn must use it. */
   cart?: CartLine[];
   cartMessage?: string;
+  /** True when the cart change added the proposed group order plan. */
+  planAdded?: boolean;
   sources?: Source[];
+  /** Structured data for the chat to draw (built here, never by the model). */
+  card?: ChatCard;
 };
 
 export function isToolName(name: string): name is ToolName {
@@ -207,6 +260,10 @@ export async function runTool(name: string, rawArgs: unknown, ctx: ToolContext):
       return addToCartTool(args, ctx);
     case "update_cart":
       return updateCartTool(args, ctx);
+    case "plan_order":
+      return planOrderTool(args, ctx);
+    case "add_plan_to_cart":
+      return addPlanToCartTool(ctx);
     case "web_search":
       return webSearchTool(args, ctx);
   }
@@ -408,6 +465,59 @@ function updateCartTool(args: { line_id: string; quantity: number }, ctx: ToolCo
   return {
     cart: result.cart,
     cartMessage: result.message,
+    result: { ok: true, confirmation: result.message, cart: cartForModel(result.cart, ctx.fulfilment) },
+  };
+}
+
+function planOrderTool(args: z.infer<(typeof TOOL_INPUT_SCHEMAS)["plan_order"]>, ctx: ToolContext): ToolOutcome {
+  const plan = planOrder({
+    people: args.people,
+    budgetSen: args.budget_rm !== undefined ? Math.round(args.budget_rm * 100) : undefined,
+    vegetarians: args.vegetarians,
+    exclude: args.exclude,
+    spicy: args.spicy,
+    sides: args.sides,
+    drinks: args.drinks,
+    dessert: args.dessert,
+    fulfilment: ctx.fulfilment,
+  });
+  const s = plan.summary;
+  return {
+    card: plan.ok ? planCard(plan, ctx.fulfilment) : undefined,
+    result: {
+      ok: plan.ok,
+      added_to_cart: false,
+      people: plan.people,
+      fulfilment: ctx.fulfilment,
+      items: s.lines.map((l) => ({ quantity: l.quantity, description: describeLine(l), line_total: formatRM(l.lineTotalSen) })),
+      subtotal: formatRM(s.subtotalSen),
+      delivery_fee: formatRM(s.deliveryFeeSen),
+      total: formatRM(s.totalSen),
+      per_person: formatRM(plan.perPersonSen),
+      budget: plan.budgetSen !== undefined ? formatRM(plan.budgetSen) : undefined,
+      within_budget: plan.withinBudget,
+      over_budget_by: plan.withinBudget ? undefined : formatRM(plan.overBudgetBySen),
+      changes_to_fit_budget: plan.adjustments,
+      relaxed: plan.relaxed,
+      free_delivery_hint: plan.freeDeliveryHint,
+      delivery_minimum_note: plan.deliveryMinimumNote,
+      rule: PLAN_RULE,
+      instruction:
+        "Present this as a proposal, not an order: the main items, total, cost per person, and every point in changes_to_fit_budget and relaxed. If within_budget is false, say clearly that it is over budget and by how much. Nothing is in the cart yet. The chat shows the plan as a card with an 'Add all to cart' button; also tell the customer they can say yes. Only call add_plan_to_cart after a clear yes.",
+    },
+  };
+}
+
+function addPlanToCartTool(ctx: ToolContext): ToolOutcome {
+  if (!ctx.pendingPlan?.length) {
+    return { result: { ok: false, error: "There is no group order plan waiting to be added. Call plan_order first." } };
+  }
+  const result = addLinesToCart(ctx.cart, ctx.pendingPlan);
+  if (!result.ok) return { result: { ok: false, error: result.error } };
+  return {
+    cart: result.cart,
+    cartMessage: result.message,
+    planAdded: true,
     result: { ok: true, confirmation: result.message, cart: cartForModel(result.cart, ctx.fulfilment) },
   };
 }

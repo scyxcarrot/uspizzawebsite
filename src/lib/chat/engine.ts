@@ -8,7 +8,16 @@ import { geminiDailyCap } from "@/lib/chat/dailyCap";
 import { classifyError, FRIENDLY } from "@/lib/chat/errors";
 import type { ChatRequest } from "@/lib/chat/request";
 import { buildSystemPrompt } from "@/lib/chat/systemPrompt";
-import { TOOL_DECLARATIONS, TOOL_STATUS, isToolName, runTool, type ToolContext, type WebSearchResult } from "@/lib/chat/tools";
+import {
+  TOOL_DECLARATIONS,
+  TOOL_STATUS,
+  isToolName,
+  runTool,
+  type ToolContext,
+  type ToolOutcome,
+  type WebSearchResult,
+} from "@/lib/chat/tools";
+import type { ChatCard } from "@/lib/chat/cards";
 import type { ChatEvent, Source } from "@/lib/chat/types";
 
 export type Emit = (event: ChatEvent) => void;
@@ -68,8 +77,10 @@ export async function runChatTurn(args: {
     browserOrders: request.orders,
     now,
     webSearch: (query) => webSearch(ai, config.searchModel, query, signal),
+    pendingPlan: request.pendingPlan,
   };
   const sources: Source[] = [];
+  const cards: ChatCard[] = [];
 
   // The model for this turn. It switches to the fallback (for the rest of the
   // turn) only when the main model returns a rate-limit or quota error.
@@ -145,6 +156,7 @@ export async function runChatTurn(args: {
           emit({ type: "text", delta: "Sorry, I couldn't come up with an answer to that. Could you rephrase it?" });
         }
         if (sources.length) emit({ type: "sources", sources: dedupeSources(sources) });
+        for (const card of finalCards(cards)) emit({ type: "card", card });
         console.info(`[chat] answered by ${model}`);
         console.info(`[chat] model calls: ${timings.join(", ")}`);
         emit({ type: "done" });
@@ -157,10 +169,7 @@ export async function runChatTurn(args: {
         const name = call.name ?? "";
         emit({ type: "status", text: isToolName(name) ? TOOL_STATUS[name] : "Working on it…", tool: name });
         const outcome = await runTool(name, call.args, ctx);
-        if (outcome.cart) {
-          ctx.cart = outcome.cart; // later tools in this turn see the new cart
-          emit({ type: "cart", cart: outcome.cart, message: outcome.cartMessage ?? "Cart updated" });
-        }
+        applyOutcome(outcome, ctx, emit, cards);
         if (outcome.sources) sources.push(...outcome.sources);
         responses.push({ functionResponse: { id: call.id, name, response: outcome.result } });
       }
@@ -213,6 +222,27 @@ export async function webSearch(
     console.error("[chat] web_search failed:", err);
     return { ok: false, error: "This demo can't check live information right now." };
   }
+}
+
+/** Apply a tool's side effects for this turn: cart changes go to the browser now, cards at the end. */
+export function applyOutcome(outcome: ToolOutcome, ctx: ToolContext, emit: Emit, cards: ChatCard[]) {
+  if (outcome.cart) {
+    ctx.cart = outcome.cart; // later tools in this turn see the new cart
+    if (outcome.planAdded) ctx.pendingPlan = undefined; // can't be added twice
+    emit({
+      type: "cart",
+      cart: outcome.cart,
+      message: outcome.cartMessage ?? "Cart updated",
+      ...(outcome.planAdded ? { planAdded: true } : {}),
+    });
+  }
+  if (outcome.card) cards.push(outcome.card);
+}
+
+/** Cards to show under the reply: only the latest plan, and at most a few in all. */
+export function finalCards(cards: ChatCard[]): ChatCard[] {
+  const lastPlan = cards.findLast((c) => c.kind === "plan");
+  return cards.filter((c) => c.kind !== "plan" || c === lastPlan).slice(-3);
 }
 
 function dedupeSources(list: Source[]): Source[] {

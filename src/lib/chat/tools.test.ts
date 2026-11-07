@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { addToCart, type CartLine } from "@/lib/cart";
 import { resolveItem, runTool, TOOL_DECLARATIONS, TOOL_INPUT_SCHEMAS, type ToolContext } from "@/lib/chat/tools";
+import { formatRM } from "@/lib/money";
 import { sanitizeBrowserOrders } from "@/lib/orders";
+import { planOrder } from "@/lib/planner";
 
 function ctx(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
@@ -20,7 +22,7 @@ const names = (r: Record<string, unknown>) => (r.items as Item[]).map((i) => i.n
 describe("tool declarations", () => {
   it("has a validation schema for every declared tool", () => {
     for (const t of TOOL_DECLARATIONS) expect(TOOL_INPUT_SCHEMAS[t.name]).toBeDefined();
-    expect(TOOL_DECLARATIONS).toHaveLength(8);
+    expect(TOOL_DECLARATIONS).toHaveLength(10);
   });
 });
 
@@ -46,6 +48,13 @@ describe("input validation for every tool", () => {
     ["update_cart", { line_id: "cola", quantity: -1 }],
     ["web_search", { query: "" }],
     ["web_search", "not an object"],
+    ["plan_order", {}],
+    ["plan_order", { people: 0 }],
+    ["plan_order", { people: 50 }],
+    ["plan_order", { people: 4, vegetarians: 5 }],
+    ["plan_order", { people: 4, budget_rm: -10 }],
+    ["plan_order", { people: 4, price: 1 }],
+    ["add_plan_to_cart", { lines: [] }],
   ];
   it.each(invalid)("%s rejects %j", async (name, args) => {
     const out = await runTool(name, args, ctx());
@@ -226,5 +235,47 @@ describe("web_search", () => {
     expect(instruction).toMatch(/this demo can't check live information right now/);
     expect(instruction).toMatch(/suggest a suitable source/);
     expect(instruction).toMatch(/do not guess/i);
+  });
+});
+
+describe("plan_order and add_plan_to_cart", () => {
+  const args = { people: 6, budget_rm: 120, vegetarians: 2, exclude: ["beef"] };
+
+  it("plans in code, returns a card, and adds nothing to the cart", async () => {
+    const out = await runTool("plan_order", args, ctx());
+    expect(out.cart).toBeUndefined();
+    expect(out.result).toMatchObject({ ok: true, added_to_cart: false, people: 6, within_budget: true });
+    expect(out.card).toMatchObject({ kind: "plan", people: 6, budgetSen: 12000, withinBudget: true });
+    const plan = planOrder({ people: 6, budgetSen: 12000, vegetarians: 2, exclude: ["beef"], fulfilment: "delivery" });
+    expect(out.result.total).toBe(formatRM(plan.summary.totalSen));
+    expect(out.card && out.card.kind === "plan" && out.card.lines).toEqual(plan.lines);
+    expect(String(out.result.instruction)).toMatch(/Only call add_plan_to_cart after a clear yes/);
+  });
+
+  it("uses the customer's delivery or pickup choice", async () => {
+    const out = await runTool("plan_order", { people: 1, sides: false, drinks: false }, ctx({ fulfilment: "pickup" }));
+    expect(out.result).toMatchObject({ fulfilment: "pickup", delivery_fee: "RM 0.00" });
+  });
+
+  it("marks an impossible budget clearly", async () => {
+    const out = await runTool("plan_order", { people: 10, budget_rm: 10 }, ctx());
+    expect(out.result).toMatchObject({ ok: true, within_budget: false });
+    expect(out.result.over_budget_by).toMatch(/^RM /);
+    expect(out.card).toMatchObject({ withinBudget: false });
+  });
+
+  it("adds the pending plan to the cart, merged with what is there", async () => {
+    const plan = planOrder({ people: 2, fulfilment: "delivery" });
+    const start = addToCart([], { itemId: "cola", quantity: 1 });
+    const out = await runTool("add_plan_to_cart", {}, ctx({ cart: start.ok ? start.cart : [], pendingPlan: plan.lines }));
+    expect(out.planAdded).toBe(true);
+    const colas = out.cart?.find((l) => l.itemId === "cola")?.quantity;
+    expect(colas).toBe(1 + (plan.lines.find((l) => l.itemId === "cola")?.quantity ?? 0));
+  });
+
+  it("refuses when there is no plan to add", async () => {
+    const out = await runTool("add_plan_to_cart", {}, ctx());
+    expect(out.result.ok).toBe(false);
+    expect(out.cart).toBeUndefined();
   });
 });

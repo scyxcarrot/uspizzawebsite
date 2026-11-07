@@ -4,9 +4,10 @@
 // Mock mode is refused in production (see isMockAllowed in config.ts).
 
 import { MENU } from "@/data/menu";
-import type { Emit } from "@/lib/chat/engine";
+import type { ChatCard } from "@/lib/chat/cards";
+import { applyOutcome, finalCards, type Emit } from "@/lib/chat/engine";
 import type { ChatRequest } from "@/lib/chat/request";
-import { TOOL_STATUS, runTool, type ToolContext } from "@/lib/chat/tools";
+import { TOOL_STATUS, runTool, type ToolContext, type ToolName } from "@/lib/chat/tools";
 
 const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -27,7 +28,53 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
       answer: "Mock search result.",
       sources: [{ title: "Example source", url: "https://example.com/" }],
     }),
+    pendingPlan: request.pendingPlan,
   };
+  const cards: ChatCard[] = [];
+  /** Run a real tool, apply its cart change and keep its card, like the live engine. */
+  const tool = async (name: ToolName, args: Record<string, unknown>) => {
+    emit({ type: "status", text: TOOL_STATUS[name], tool: name });
+    const outcome = await runTool(name, args, ctx);
+    applyOutcome(outcome, ctx, emit, cards);
+    return outcome;
+  };
+  const finish = () => {
+    for (const card of finalCards(cards)) emit({ type: "card", card });
+    emit({ type: "done" });
+  };
+
+  // Group order planner: "Feed 6 people under RM120, 2 are vegetarian, no beef"
+  const people = text.match(/\b(\d+)\s*(?:people|persons|pax|of us)\b/);
+  if (people && /\b(feed|plan|group|party|people)\b/.test(text)) {
+    const budget = text.match(/rm\s?(\d+(?:\.\d+)?)/);
+    const veg = text.match(/\b(\d+)\s*(?:are\s+)?vegetarians?\b/);
+    const exclude = [...text.matchAll(/\bno\s+([a-z]+)/g)].map((m) => m[1]!).filter((w) => w !== "budget");
+    const outcome = await tool("plan_order", {
+      people: Number(people[1]),
+      ...(budget ? { budget_rm: Number(budget[1]) } : {}),
+      ...(veg ? { vegetarians: Number(veg[1]) } : {}),
+      ...(exclude.length ? { exclude } : {}),
+      ...(/\bdessert\b/.test(text) ? { dessert: true } : {}),
+    });
+    const r = outcome.result;
+    streamText(
+      emit,
+      r.ok
+        ? `(Mock) Here's a plan for ${String(r.people)} people: total ${String(r.total)}, about ${String(r.per_person)} each.${
+            r.within_budget ? "" : ` It is ${String(r.over_budget_by)} over your budget.`
+          } Nothing is in your cart yet. Tap **Add all to cart** or say yes.`
+        : `(Mock) Sorry, I couldn't plan that: ${String(r.error ?? "no items fit")}`,
+    );
+    finish();
+    return;
+  }
+
+  if (/^(yes|yes please|yep|ok|okay|sure|add (it )?all|add the plan)\b/.test(text.trim())) {
+    const outcome = await tool("add_plan_to_cart", {});
+    streamText(emit, outcome.cart ? `(Mock) Done! ${outcome.cartMessage}. [Go to checkout](/checkout)` : `(Mock) ${String(outcome.result.error)}`);
+    finish();
+    return;
+  }
 
   if (/\badd\b/.test(text)) {
     const item = MENU.find(

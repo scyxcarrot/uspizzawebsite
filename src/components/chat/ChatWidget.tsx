@@ -6,9 +6,11 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useAppState } from "@/components/AppStateProvider";
 import { CartIcon, ChatIcon, CloseIcon, RefreshIcon, SendIcon, TrashIcon } from "@/components/Icons";
+import { ChatCards } from "@/components/chat/ChatCards";
 import { Markdown } from "@/components/chat/Markdown";
 import { useChat } from "@/components/chat/useChat";
 import { LIMITS } from "@/lib/chat/config";
+import type { PlanCard } from "@/lib/chat/cards";
 import type { ChatMessage } from "@/lib/chat/types";
 
 export function ChatWidget() {
@@ -127,6 +129,7 @@ export function ChatWidget() {
                 message={m}
                 onRetry={() => chat.retry(m.id)}
                 onViewCart={() => setCartOpen(true)}
+                onAddPlan={(plan) => chat.addPlan(m.id, plan)}
                 busy={chat.busy}
               />
             ))}
@@ -230,7 +233,13 @@ function Welcome({ onAsk }: { onAsk: (question: string) => void }) {
   );
 }
 
-function MessageBubble(props: { message: ChatMessage; onRetry: () => void; onViewCart: () => void; busy: boolean }) {
+function MessageBubble(props: {
+  message: ChatMessage;
+  onRetry: () => void;
+  onViewCart: () => void;
+  onAddPlan: (plan: PlanCard) => void;
+  busy: boolean;
+}) {
   const { message: m } = props;
   if (m.role === "user") {
     return (
@@ -245,7 +254,7 @@ function MessageBubble(props: { message: ChatMessage; onRetry: () => void; onVie
       </div>
     );
   }
-  if (!m.text && !m.error && !m.cartNotes?.length) return null;
+  if (!m.text && !m.error && !m.cartNotes?.length && !m.cards?.length) return null;
 
   return (
     <div className="max-w-[92%] space-y-2" data-testid="chat-assistant-message">
@@ -255,6 +264,7 @@ function MessageBubble(props: { message: ChatMessage; onRetry: () => void; onVie
           <Markdown text={m.text} />
         </div>
       )}
+      {m.cards && m.cards.length > 0 && <ChatCards cards={m.cards} onAddPlan={props.onAddPlan} />}
       {m.cartNotes?.map((note, i) => (
         <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl bg-basil-tint px-3 py-2 text-sm font-semibold text-basil" data-testid="chat-cart-note">
           <CartIcon className="size-4" />

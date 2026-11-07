@@ -19,10 +19,12 @@ import {
   type ReactNode,
 } from "react";
 import {
+  addLinesToCart,
   addToCart,
   removeCartLine,
   sanitizeCart,
   updateCartLine,
+  type AddLinesResult,
   type AddToCartInput,
   type CartLine,
   type CartResult,
@@ -45,6 +47,8 @@ type AppState = {
   addItem: (input: AddToCartInput) => CartResult;
   setQuantity: (lineId: string, quantity: number) => CartResult;
   removeLine: (lineId: string) => CartResult;
+  /** Add several lines at once (all or nothing), e.g. a group order plan. */
+  addLines: (lines: CartLine[]) => AddLinesResult;
   /** Replace the whole cart, e.g. with the server-validated cart from the chatbot. */
   replaceCart: (cart: unknown) => void;
   placeOrder: (customer: Customer) => Order;
@@ -125,6 +129,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [cart, applyResult],
   );
   const replaceCart = useCallback((next: unknown) => setCart(sanitizeCart(next)), []);
+  const addLines = useCallback(
+    (lines: CartLine[]) => {
+      const result = addLinesToCart(cart, lines);
+      if (result.ok) setCart(result.cart);
+      return result;
+    },
+    [cart],
+  );
 
   const placeOrder = useCallback(
     (customer: Customer) => {
@@ -154,6 +166,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     addItem,
     setQuantity,
     removeLine,
+    addLines,
     replaceCart,
     placeOrder,
     cartOpen,

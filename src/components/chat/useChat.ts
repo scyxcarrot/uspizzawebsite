@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
+import { sanitizeCard, sanitizeCards, type PlanCard } from "@/lib/chat/cards";
 import type { ChatEvent, ChatMessage } from "@/lib/chat/types";
 import { STORAGE_KEYS, readJSON, removeKey, writeJSON } from "@/lib/storage";
 
@@ -26,11 +27,27 @@ function loadMessages(): ChatMessage[] {
       (m): m is ChatMessage =>
         !!m && typeof m === "object" && (m.role === "user" || m.role === "assistant") && typeof m.text === "string",
     )
-    .slice(-MAX_SAVED);
+    .slice(-MAX_SAVED)
+    .map((m) => ({ ...m, cards: m.cards ? sanitizeCards(m.cards) : undefined }));
 }
 
+/** The most recent plan card that has not been added to the cart yet. */
+function pendingPlan(messages: ChatMessage[]): PlanCard | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const plan = messages[i]!.cards?.find((c): c is PlanCard => c.kind === "plan");
+    if (plan) return plan.added ? undefined : plan;
+  }
+  return undefined;
+}
+
+/** Mark every plan card in a message as added. */
+const markPlansAdded = (m: ChatMessage): ChatMessage => ({
+  ...m,
+  cards: m.cards?.map((c) => (c.kind === "plan" ? { ...c, added: true } : c)),
+});
+
 export function useChat() {
-  const { cart, orders, fulfilment, replaceCart, showNotice } = useAppState();
+  const { cart, orders, fulfilment, replaceCart, showNotice, addLines } = useAppState();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -92,6 +109,7 @@ export function useChat() {
             cart: latest.current.cart,
             orders: latest.current.orders,
             fulfilment: latest.current.fulfilment,
+            pendingPlan: pendingPlan(conversation)?.lines,
           }),
         });
 
@@ -138,7 +156,15 @@ export function useChat() {
                 replaceCart(event.cart);
                 showNotice(event.message);
                 updateMessage(assistantId, (m) => ({ ...m, cartNotes: [...(m.cartNotes ?? []), event.message] }));
+                if (event.planAdded) {
+                  setMessages((prev) => prev.map((m) => (m.cards?.some((c) => c.kind === "plan") ? markPlansAdded(m) : m)));
+                }
                 break;
+              case "card": {
+                const card = sanitizeCard(event.card);
+                if (card) updateMessage(assistantId, (m) => ({ ...m, cards: [...(m.cards ?? []), card] }));
+                break;
+              }
               case "sources":
                 updateMessage(assistantId, (m) => ({ ...m, sources: event.sources }));
                 break;
@@ -188,5 +214,23 @@ export function useChat() {
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
-  return { messages, loaded, busy, status, announcement, send, retry, clear, stop };
+  /** "Add all to cart" on a plan card: added in code, with no AI request. */
+  const addPlan = useCallback(
+    (messageId: string, plan: PlanCard) => {
+      const result = addLines(plan.lines);
+      if (!result.ok) {
+        showNotice(result.error, "info");
+        return;
+      }
+      showNotice(result.message);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...markPlansAdded(m), cartNotes: [...(m.cartNotes ?? []), result.message] } : m,
+        ),
+      );
+    },
+    [addLines, showNotice],
+  );
+
+  return { messages, loaded, busy, status, announcement, send, retry, clear, stop, addPlan };
 }

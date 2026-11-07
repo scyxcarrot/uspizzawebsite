@@ -14,6 +14,33 @@ The main design idea: **AI handles language, normal code handles facts.** The AI
 
 ## 2. Features
 
+**Group order planner (the headline feature)**
+
+Ask the assistant "Feed 6 people under RM120, 2 are vegetarian, no beef". It replies with a ready-made basket as a card: every item and price, the subtotal, delivery fee, total, cost per person, and any changes made to fit the budget. Nothing is added until the customer taps **Add all to cart** (which adds everything in code, with no further AI request) or says yes.
+
+The AI only turns the request into inputs (people, budget, vegetarians, things to avoid, preferences). The basket itself is built by plain, unit-tested code in `src/lib/planner.ts`, using this rule:
+
+| Part of the order | Rule |
+|---|---|
+| Pizzas | One Large pizza for every 2.5 people, rounded up (2 people: 1, 4 people: 2, 6 people: 3) |
+| Vegetarians | One Vegetarian pizza for every 2.5 vegetarians, rounded up; everyone vegetarian means only vegetarian items |
+| Sides | One to share for every 3 people, rounded up (unless the customer doesn't want sides) |
+| Drinks | One each (unless declined) |
+| Dessert | Only if asked for, one to share for every 3 people |
+| Choice of items | Cheapest suitable item first, with no repeats until every suitable item has been used, so the group gets variety |
+
+Exclusions ("no beef", "no seafood", "no nuts", "no spicy") and dietary needs are **never** relaxed: they are matched against each item's tags, allergens and ingredients. The budget includes the delivery fee and is never exceeded. If the basket costs too much, the planner makes it cheaper one step at a time and stops as soon as it fits:
+
+1. Mineral Water instead of Cola
+2. The cheapest suitable pizzas
+3. Fewer desserts
+4. No drinks (all or nothing: a drink for only some of the group would be odd)
+5. Fewer sides
+6. Regular instead of Large pizzas
+7. Fewer pizzas (at least one, and the vegetarians' pizza is removed last)
+
+Every change is listed on the card. If even the smallest basket is over budget (for example "feed 10 people for RM10"), the planner returns that closest option and marks it clearly as over budget, by how much. If nothing on the menu fits an exclusion (for example "no gluten" leaves no pizza), it says so. The card also shows a free-delivery hint or the delivery minimum when they apply. Totals come from the same pricing functions as the cart, and unit tests check that they match.
+
 **Ordering**
 - Menu with 20 items in 5 categories, original illustrations, dietary tags and allergens
 - Pizza options: Regular or Large, and Hand-Tossed, Thin or Cheese-Stuffed (+RM 5)

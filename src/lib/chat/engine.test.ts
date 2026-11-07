@@ -4,6 +4,7 @@ import type { AiConfig } from "@/lib/chat/config";
 import { runChatTurn, type GenAiClient } from "@/lib/chat/engine";
 import type { ChatRequest } from "@/lib/chat/request";
 import type { ChatEvent } from "@/lib/chat/types";
+import { planOrder } from "@/lib/planner";
 
 // A fake Gemini client. Each model call takes the next scripted step:
 // a list of chunks to stream, an error to throw at once, or chunks followed by an error.
@@ -53,6 +54,7 @@ const request = (text: string): ChatRequest => ({
   cart: [],
   orders: [],
   fulfilment: "delivery",
+  pendingPlan: [],
 });
 
 async function run(steps: Step[], cfg = config, text = "Add two large pepperoni pizzas") {
@@ -74,6 +76,32 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => vi.restoreAllMocks());
+
+describe("group order plans", () => {
+  it("shows the plan card and never adds the same plan twice in one reply", async () => {
+    const plan = planOrder({ people: 2, fulfilment: "delivery" });
+    const { client } = fakeClient([
+      { parts: [[{ functionCall: { id: "a", name: "add_plan_to_cart", args: {} } }, { functionCall: { id: "b", name: "add_plan_to_cart", args: {} } }]] },
+      { parts: [[{ text: "Added." }]] },
+    ]);
+    const events: ChatEvent[] = [];
+    await runChatTurn({ config, request: { ...request("yes"), pendingPlan: plan.lines }, emit: (e) => events.push(e), client });
+    const carts = events.filter((e) => e.type === "cart");
+    expect(carts).toHaveLength(1);
+    expect(carts[0]).toMatchObject({ planAdded: true });
+  });
+
+  it("sends the plan card with the reply", async () => {
+    const { client } = fakeClient([
+      { parts: [[{ functionCall: { id: "p", name: "plan_order", args: { people: 4 } } }]] },
+      { parts: [[{ text: "Here is a plan." }]] },
+    ]);
+    const events: ChatEvent[] = [];
+    await runChatTurn({ config, request: request("feed 4 people"), emit: (e) => events.push(e), client });
+    expect(events.filter((e) => e.type === "card")).toEqual([expect.objectContaining({ card: expect.objectContaining({ kind: "plan", people: 4 }) })]);
+    expect(events.filter((e) => e.type === "cart")).toHaveLength(0);
+  });
+});
 
 describe("whole-reply deadline", () => {
   it("stops a reply that runs past the deadline with the friendly timeout message", async () => {

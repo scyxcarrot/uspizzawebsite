@@ -223,3 +223,23 @@ export function sanitizeCart(raw: unknown): CartLine[] {
   }
   return cart;
 }
+
+export type AddLinesResult = { ok: true; cart: CartLine[]; message: string } | { ok: false; error: string };
+
+/**
+ * Add several lines at once (e.g. a group order plan). All or nothing: if any
+ * line can't be added (unknown item, quantity limit, full cart), the cart is
+ * unchanged. Used by both the chat "Add all to cart" button and the chatbot.
+ */
+export function addLinesToCart(cart: CartLine[], lines: CartLine[]): AddLinesResult {
+  if (lines.length === 0) return { ok: false, error: "There is nothing to add." };
+  let next = cart;
+  let count = 0;
+  for (const l of lines) {
+    const r = addToCart(next, { itemId: l.itemId, quantity: l.quantity, size: l.size, crust: l.crust });
+    if (!r.ok) return { ok: false, error: r.error };
+    next = r.cart;
+    count += l.quantity;
+  }
+  return { ok: true, cart: next, message: `Added to cart: ${count} ${count === 1 ? "item" : "items"} from the group order` };
+}
