@@ -124,7 +124,7 @@ Every change is listed on the card. If even the smallest basket is over budget (
 **Trade-offs.**
 
 - **Single admin login.** There is one password, not user accounts, which is enough for a demo. A real shop would use proper staff accounts.
-- **Shared database.** Preview and production deployments share one database, so a change made on a preview also shows on production.
+- **Shared database.** If Preview and Production use the same Neon database (the Vercel Storage tab shows this), a change made on a preview also shows on production once it reads the database.
 - **Rate limit and cache per instance.** Both live in server memory, like the daily AI cap.
 
 ## 3. Setup and tests
