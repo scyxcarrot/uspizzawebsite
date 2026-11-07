@@ -3,14 +3,16 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
-import { CATEGORIES, MENU, startingPrice, type CategoryId, type MenuItem } from "@/data/menu";
+import { CATEGORIES, MENU, findMenuItem, startingPrice, type CategoryId, type MenuItem } from "@/data/menu";
 import { formatRM } from "@/lib/money";
 import { PlusIcon } from "@/components/Icons";
 import { ItemDialog } from "@/components/menu/ItemDialog";
 import { TagList } from "@/components/menu/Tags";
 
 export function MenuBrowser() {
-  const [selected, setSelected] = useState<MenuItem | null>(null);
+  // Keep the ID, not the object, so the open dialog shows live changes (e.g. sold out).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = selectedId ? (findMenuItem(selectedId) ?? null) : null;
   const { setFocusItemId } = useAppState();
   const active = useActiveCategory();
 
@@ -31,7 +33,7 @@ export function MenuBrowser() {
                     <ItemCard
                       item={item}
                       onSelect={() => {
-                        setSelected(item);
+                        setSelectedId(item.id);
                         // The assistant knows which item is open ("Is this spicy?").
                         setFocusItemId(item.id);
                       }}
@@ -43,7 +45,7 @@ export function MenuBrowser() {
           );
         })}
       </div>
-      <ItemDialog item={selected} onClose={() => setSelected(null)} />
+      <ItemDialog item={selected} onClose={() => setSelectedId(null)} />
     </>
   );
 }
@@ -55,8 +57,15 @@ function ItemCard({ item, onSelect }: { item: MenuItem; onSelect: () => void }) 
       type="button"
       onClick={onSelect}
       data-testid={`item-${item.id}`}
-      className="group flex h-full w-full flex-row overflow-hidden rounded-card border border-line bg-card text-left shadow-card transition-transform hover:-translate-y-0.5 min-[400px]:flex-col"
-      aria-label={`${item.name}, ${from}${formatRM(startingPrice(item))}. ${item.kind === "pizza" ? "Choose size and crust" : "Add to cart"}`}
+      data-sold-out={item.soldOut ? "true" : undefined}
+      className={`group flex h-full w-full flex-row overflow-hidden rounded-card border border-line bg-card text-left shadow-card transition-transform hover:-translate-y-0.5 min-[400px]:flex-col ${
+        item.soldOut ? "opacity-70" : ""
+      }`}
+      aria-label={
+        item.soldOut
+          ? `${item.name}, sold out. View details`
+          : `${item.name}, ${from}${formatRM(startingPrice(item))}. ${item.kind === "pizza" ? "Choose size and crust" : "Add to cart"}`
+      }
     >
       <Image
         src={item.image}
@@ -76,9 +85,15 @@ function ItemCard({ item, onSelect }: { item: MenuItem; onSelect: () => void }) 
             {from && <span className="text-xs font-medium text-ink-soft">from </span>}
             {formatRM(startingPrice(item))}
           </span>
-          <span className="grid size-9 place-items-center rounded-full bg-brand text-white transition-colors group-hover:bg-brand-dark">
-            <PlusIcon />
-          </span>
+          {item.soldOut ? (
+            <span className="rounded-full bg-ink px-3 py-1 text-xs font-bold uppercase tracking-wide text-white" data-testid="sold-out-badge">
+              Sold out
+            </span>
+          ) : (
+            <span className="grid size-9 place-items-center rounded-full bg-brand text-white transition-colors group-hover:bg-brand-dark">
+              <PlusIcon />
+            </span>
+          )}
         </span>
       </span>
     </button>

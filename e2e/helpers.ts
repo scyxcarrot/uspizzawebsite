@@ -3,6 +3,14 @@ import { expect, type Page, type TestInfo } from "@playwright/test";
 export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1440) < 768;
 
 /** Open the cart: the fixed "View cart" bar on phones, the header button elsewhere. */
+/**
+ * Outlets only take orders while open, so tests that place an order run the
+ * browser clock from 2 pm Malaysia time (the clock keeps ticking from there).
+ */
+export async function useAfternoonClock(page: Page) {
+  await page.clock.install({ time: new Date("2026-11-07T06:00:00Z") });
+}
+
 export async function openCart(page: Page) {
   if (isPhone(page)) {
     await page.getByTestId("view-cart-bar").getByRole("button", { name: /view cart/i }).click();

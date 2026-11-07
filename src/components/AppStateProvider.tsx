@@ -31,6 +31,7 @@ import {
 } from "@/lib/cart";
 import { createOrder, nextOrderId, sanitizeBrowserOrders, type Customer, type Order } from "@/lib/orders";
 import { priceCart, type CartSummary, type Fulfilment } from "@/lib/pricing";
+import { useCatalogVersion } from "@/components/CatalogProvider";
 import { STORAGE_KEYS, readJSON, writeJSON } from "@/lib/storage";
 import { findOutlet } from "@/data/outlets";
 import type { LatLng } from "@/lib/outlets";
@@ -200,7 +201,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
   const closeOutletPicker = useCallback(() => setOutletPicker((p) => ({ ...p, open: false })), []);
 
-  const summary = useMemo(() => priceCart(cart, fulfilment), [cart, fulfilment]);
+  // Re-price when the live catalogue changes (a price change or an item sold out).
+  // Every useAppState consumer re-renders with it, so the menu updates too.
+  const catalogVersion = useCatalogVersion();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const summary = useMemo(() => priceCart(cart, fulfilment), [cart, fulfilment, catalogVersion]);
 
   const value: AppState = {
     ready,

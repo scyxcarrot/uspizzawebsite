@@ -11,6 +11,7 @@ import { runMockTurn } from "@/lib/chat/mock";
 import { createRateLimiter, clientIp } from "@/lib/chat/rateLimit";
 import { parseChatRequest } from "@/lib/chat/request";
 import type { ChatEvent } from "@/lib/chat/types";
+import { loadCatalog } from "@/lib/db/catalog-server";
 
 // Seconds. Streaming time counts too. A reply can make up to 6 Gemini calls
 // (5 tool rounds plus one fallback retry) of up to 25 s each, plus web
@@ -37,6 +38,9 @@ export async function POST(req: Request) {
   } catch {
     return errorResponse(FRIENDLY.bad_request, 400);
   }
+  // Read the latest menu and outlets (sold out, prices, closures) before
+  // checking the request, so the tools answer from the same data as the menu.
+  await loadCatalog();
   const parsed = parseChatRequest(body);
   if (!parsed.ok) {
     return errorResponse({ ...FRIENDLY.bad_request, message: parsed.error }, 400);

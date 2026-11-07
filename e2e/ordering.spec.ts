@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { addPizza, addSimple, chooseOutlet, expectNoHorizontalScroll, isPhone, openCart, screenshot } from "./helpers";
+import { addPizza, addSimple, chooseOutlet, expectNoHorizontalScroll, isPhone, openCart, screenshot, useAfternoonClock } from "./helpers";
 
 test.describe("ordering flow", () => {
   test("full order from menu to tracking", async ({ page }, testInfo) => {
-    await page.clock.install();
+    await useAfternoonClock(page);
     await page.goto("/");
     await expect(page.getByTestId("site-name")).toHaveText("US Pizza Demo");
     await expect(page.getByTestId("footer-demo-note")).toHaveText("Demo site with dummy data.");
@@ -100,6 +100,7 @@ test.describe("ordering flow", () => {
   });
 
   test("delivery minimum is enforced and pickup removes the address and fee", async ({ page }) => {
+    await useAfternoonClock(page);
     await page.goto("/");
     await chooseOutlet(page, "delivery");
     await addSimple(page, "cola");

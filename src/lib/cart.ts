@@ -42,6 +42,7 @@ export type CartErrorCode =
   | "invalid_quantity"
   | "quantity_limit"
   | "cart_full"
+  | "sold_out"
   | "unknown_line";
 
 export type CartResult =
@@ -83,9 +84,12 @@ function isValidQuantity(q: number): boolean {
  * Hand-Tossed (and `defaultedCrust` tells the caller to say so).
  * Adding the same item with the same options increases that line's quantity.
  */
-export function addToCart(cart: CartLine[], input: AddToCartInput): CartResult {
+export function addToCart(cart: CartLine[], input: AddToCartInput, opts: { allowSoldOut?: boolean } = {}): CartResult {
   const item = findMenuItem(input.itemId);
   if (!item) return fail("unknown_item", `There is no menu item with ID "${input.itemId}".`);
+  if (item.soldOut && !opts.allowSoldOut) {
+    return fail("sold_out", `Sorry, ${item.name} is sold out right now, so it can't be added.`);
+  }
 
   if (!isValidQuantity(input.quantity)) {
     return fail(
@@ -170,6 +174,11 @@ export function updateCartLine(cart: CartLine[], lineId: string, quantity: numbe
     );
   }
 
+  const item = findMenuItem(existing.itemId);
+  if (item?.soldOut && quantity > existing.quantity) {
+    return fail("sold_out", `Sorry, ${item.name} is sold out right now. You can remove it, but not add more.`);
+  }
+
   const line = { ...existing, quantity };
   return {
     ok: true,
@@ -218,7 +227,9 @@ export function sanitizeCart(raw: unknown): CartLine[] {
     if (!item) continue;
     // Pizzas must arrive with both options; we do not guess inside a stored cart.
     if (item.kind === "pizza" && (!line.data.size || !line.data.crust)) continue;
-    const result = addToCart(cart, line.data);
+    // Keep sold-out lines: the cart shows them as unavailable and checkout
+    // asks the customer to remove them, instead of silently dropping them.
+    const result = addToCart(cart, line.data, { allowSoldOut: true });
     if (result.ok) cart = result.cart;
   }
   return cart;

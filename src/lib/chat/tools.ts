@@ -19,6 +19,7 @@ import {
   formatKm,
   hoursLabel,
   isOpenAt,
+  closedMessage,
   outletsByDistance,
   pickupEstimate,
   type LatLng,
@@ -345,6 +346,7 @@ function itemForModel(item: MenuItem, detailed = false) {
     tags: item.tags,
     allergens: item.allergens,
   };
+  if (item.soldOut) base.sold_out = "Sold out right now: it can't be ordered or added to the cart. Say so, and suggest another item.";
   if (item.kind === "pizza") {
     base.prices = { regular: formatRM(item.priceBySize.regular), large: formatRM(item.priceBySize.large) };
   } else {
@@ -624,6 +626,7 @@ function findOutletsTool(args: { area?: string }, ctx: ToolContext): ToolOutcome
         delivers_here: distanceKm !== undefined ? distanceKm <= DELIVERY_RADIUS_KM : undefined,
         open_now: isOpenAt(outlet, now),
         hours: hoursLabel(outlet),
+        closed_note: isOpenAt(outlet, now) ? undefined : `${closedMessage(outlet, now)} It can't take orders until it reopens.`,
         delivery_estimate: distanceKm !== undefined && distanceKm <= DELIVERY_RADIUS_KM ? deliveryEstimate(distanceKm).label : undefined,
         pickup_estimate: pickupEstimate().label,
       })),

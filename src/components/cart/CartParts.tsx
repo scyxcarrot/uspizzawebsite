@@ -30,6 +30,11 @@ export function CartLines({ editable, className = "" }: { editable: boolean; cla
                     {line.name}
                   </p>
                   {line.optionsLabel && <p className="text-sm text-ink-soft">{line.optionsLabel}</p>}
+                  {line.soldOut && (
+                    <p className="mt-0.5 text-sm font-bold text-brand-dark" data-testid="cart-line-sold-out">
+                      Sold out. Please remove it to check out.
+                    </p>
+                  )}
                 </div>
                 <p className="shrink-0 font-semibold tabular-nums">{formatRM(line.lineTotalSen)}</p>
               </div>

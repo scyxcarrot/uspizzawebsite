@@ -1,7 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import "./globals.css";
+import { connection } from "next/server";
 import { AppStateProvider } from "@/components/AppStateProvider";
+import { CatalogProvider } from "@/components/CatalogProvider";
+import { catalogVersion } from "@/lib/catalog";
+import { loadCatalog } from "@/lib/db/catalog-server";
 import { CartPanel } from "@/components/cart/CartPanel";
 import { ViewCartBar } from "@/components/cart/ViewCartBar";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -28,7 +32,11 @@ export const viewport: Viewport = {
   themeColor: "#c8102e",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Render per request with the live menu and outlets from the database
+  // (or the original data if it is unavailable).
+  await connection();
+  const { catalog } = await loadCatalog();
   return (
     <html lang="en" className={`${display.variable} ${body.variable} antialiased`}>
       <body className="flex min-h-[100dvh] flex-col pb-[var(--bottom-bar-h)]">
@@ -38,6 +46,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
+        <CatalogProvider initial={catalog} version={catalogVersion(catalog)}>
         <AppStateProvider>
           <SiteHeader />
           <OutletBar />
@@ -51,6 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <ChatWidget />
           <OutletPicker />
         </AppStateProvider>
+        </CatalogProvider>
       </body>
     </html>
   );

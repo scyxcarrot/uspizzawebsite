@@ -14,6 +14,8 @@ export type PricedLine = CartLine & {
   optionsLabel: string;
   unitPriceSen: number;
   lineTotalSen: number;
+  /** The item was marked sold out after it was added. Checkout is blocked until it is removed. */
+  soldOut: boolean;
 };
 
 export type CartSummary = {
@@ -29,6 +31,8 @@ export type CartSummary = {
   amountToMinimumSen: number;
   /** How much more food is needed for free delivery (0 if already free or pickup). */
   amountToFreeDeliverySen: number;
+  /** Names of cart items that are now sold out. */
+  soldOutNames: string[];
 };
 
 export function sizeName(size: SizeId): string {
@@ -86,6 +90,7 @@ export function priceCart(lines: CartLine[], fulfilment: Fulfilment = "delivery"
       optionsLabel: optionsLabel(line.size, line.crust),
       unitPriceSen: unit,
       lineTotalSen: unit * line.quantity,
+      soldOut: !!item.soldOut,
     });
   }
 
@@ -108,5 +113,6 @@ export function priceCart(lines: CartLine[], fulfilment: Fulfilment = "delivery"
       isDelivery && subtotalSen > 0
         ? Math.max(0, STORE.delivery.freeDeliveryThresholdSen - subtotalSen)
         : 0,
+    soldOutNames: [...new Set(priced.filter((l) => l.soldOut).map((l) => l.name))],
   };
 }

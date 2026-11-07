@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { findOutlet } from "@/data/outlets";
 import { formatRM } from "@/lib/money";
+import { closedMessage, isOpenAt } from "@/lib/outlets";
 import type { CartSummary, Fulfilment } from "@/lib/pricing";
 
 export type CheckoutForm = {
@@ -39,7 +40,7 @@ const addressSchema = z
   .min(10, "Please enter your full delivery address, including street and area.")
   .max(200, "Please keep the address under 200 characters.");
 
-export function validateCheckout(form: CheckoutForm, cart: CartSummary): CheckoutErrors {
+export function validateCheckout(form: CheckoutForm, cart: CartSummary, now: Date = new Date()): CheckoutErrors {
   const errors: CheckoutErrors = {};
 
   const name = nameSchema.safeParse(form.name);
@@ -53,12 +54,19 @@ export function validateCheckout(form: CheckoutForm, cart: CartSummary): Checkou
     if (!address.success) errors.address = address.error.issues[0]?.message;
   }
 
-  if (!form.outletId || !findOutlet(form.outletId)) {
+  const outlet = form.outletId ? findOutlet(form.outletId) : undefined;
+  if (!outlet) {
     errors.outlet = form.fulfilment === "pickup" ? "Please choose an outlet to pick up from." : "Please choose the outlet to deliver from.";
+  } else if (!isOpenAt(outlet, now)) {
+    errors.outlet = `${closedMessage(outlet, now)} Please choose another outlet.`;
   }
 
   if (cart.lines.length === 0) {
     errors.cart = "Your cart is empty. Add something from the menu first.";
+  } else if (cart.soldOutNames.length > 0) {
+    errors.cart = `${cart.soldOutNames.join(", ")} ${cart.soldOutNames.length === 1 ? "is" : "are"} sold out. Please remove ${
+      cart.soldOutNames.length === 1 ? "it" : "them"
+    } from your cart to continue.`;
   } else if (!cart.meetsMinimum) {
     errors.cart = `Delivery needs a food subtotal of at least RM 20.00. Add ${formatRM(
       cart.amountToMinimumSen,

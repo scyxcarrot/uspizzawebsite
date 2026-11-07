@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSimple, expectNoHorizontalScroll, screenshot } from "./helpers";
+import { addSimple, expectNoHorizontalScroll, screenshot, useAfternoonClock } from "./helpers";
 
 const BANGSAR = { latitude: 3.1307, longitude: 101.671 };
 
@@ -71,6 +71,7 @@ test.describe("outlet selection", () => {
   });
 
   test("pickup: search the list, choose, and the order shows the outlet", async ({ page }, testInfo) => {
+    await useAfternoonClock(page);
     await page.goto("/");
     await page.getByTestId("outlet-start-pickup").click();
     const picker = page.getByTestId("outlet-picker");

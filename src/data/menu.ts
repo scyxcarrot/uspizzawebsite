@@ -41,6 +41,8 @@ type BaseItem = {
   image: string;
   tags: DietaryTag[];
   allergens: Allergen[];
+  /** Set from the admin page. Sold-out items can't be added to the cart. */
+  soldOut?: boolean;
 };
 
 /** A pizza has a price per size and needs a size and crust to be ordered. */
@@ -291,6 +293,13 @@ export const MENU: MenuItem[] = [
     price: 800,
   },
 ];
+
+/**
+ * The original menu, as written above. `MENU` itself is the live menu: the
+ * catalogue (src/lib/catalog.ts) replaces its contents with the database
+ * version, and falls back to this copy if the database is unavailable.
+ */
+export const ORIGINAL_MENU: readonly MenuItem[] = structuredClone(MENU);
 
 export function findMenuItem(id: string): MenuItem | undefined {
   return MENU.find((item) => item.id === id);

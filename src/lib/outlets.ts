@@ -57,7 +57,16 @@ export function malaysiaMinutes(now: Date): number {
   return (now.getUTCHours() * 60 + now.getUTCMinutes() + 8 * 60) % (24 * 60);
 }
 
+/** True while a temporary closure set from the admin page is in force. */
+export function isTemporarilyClosed(outlet: Outlet, now: Date): boolean {
+  if (!outlet.closedUntil) return false;
+  const until = Date.parse(outlet.closedUntil);
+  return Number.isFinite(until) && now.getTime() < until;
+}
+
+/** Open now: inside its daily hours and not temporarily closed. */
 export function isOpenAt(outlet: Outlet, now: Date): boolean {
+  if (isTemporarilyClosed(outlet, now)) return false;
   const m = malaysiaMinutes(now);
   const { opensAt, closesAt } = outlet.hours;
   return opensAt < closesAt ? m >= opensAt && m < closesAt : m >= opensAt || m < closesAt;
@@ -69,6 +78,22 @@ export function formatClock(minutes: number): string {
   const suffix = h24 < 12 ? "am" : "pm";
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+/** Format an ISO time as Malaysia time, e.g. "7 Nov, 6:00 pm". */
+export function formatMalaysiaDateTime(iso: string): string {
+  const d = new Date(Date.parse(iso) + 8 * 3600_000);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]}, ${formatClock(d.getUTCHours() * 60 + d.getUTCMinutes())}`;
+}
+
+/** Why an outlet is closed now, for the customer and the chatbot. */
+export function closedMessage(outlet: Outlet, now: Date): string {
+  if (isTemporarilyClosed(outlet, now)) {
+    const reason = outlet.closedReason ? ` (${outlet.closedReason})` : "";
+    return `${outlet.name} is temporarily closed until ${formatMalaysiaDateTime(outlet.closedUntil!)}${reason}.`;
+  }
+  return `${outlet.name} is closed right now. It opens at ${formatClock(outlet.hours.opensAt)}.`;
 }
 
 export function hoursLabel(outlet: Outlet): string {

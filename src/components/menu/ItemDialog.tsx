@@ -130,6 +130,12 @@ function ItemDialogBody({ item, onClose }: { item: MenuItem; onClose: () => void
       </div>
 
       <div className="flex shrink-0 items-center gap-3 border-t border-line bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {item.soldOut ? (
+          <p className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-crust px-4 font-bold text-ink-soft" data-testid="dialog-sold-out">
+            Sold out right now
+          </p>
+        ) : (
+          <>
         <QuantityStepper value={quantity} onChange={setQuantity} label={item.name} />
         <button
           type="button"
@@ -143,6 +149,8 @@ function ItemDialogBody({ item, onClose }: { item: MenuItem; onClose: () => void
             {formatRM(total)}
           </span>
         </button>
+          </>
+        )}
       </div>
     </div>
   );

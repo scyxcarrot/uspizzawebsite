@@ -162,7 +162,11 @@ function ItemRow({ item }: { item: MenuItem }) {
           </div>
         )}
         <div className="mt-2 flex flex-wrap gap-2">
-          {item.kind === "pizza" ? (
+          {item.soldOut ? (
+            <span className="rounded-full bg-crust px-3 py-1 text-sm font-bold text-ink-soft" data-testid="chat-card-sold-out">
+              Sold out
+            </span>
+          ) : item.kind === "pizza" ? (
             <>
               <button type="button" className={button} onClick={() => add("regular")} aria-label={`Add a Regular ${item.name}`}>
                 + Regular

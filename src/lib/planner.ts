@@ -158,7 +158,8 @@ export function planOrder(input: PlanInput): Plan {
   const people = Math.min(MAX_PEOPLE, Math.max(1, Math.floor(input.people)));
   const vegetarians = Math.min(people, Math.max(0, Math.floor(input.vegetarians ?? 0)));
   const terms = exclusionTerms([...(input.exclude ?? []), ...(input.spicy === false ? ["spicy"] : [])]);
-  const allowed = MENU.filter((i) => !isExcluded(i, terms));
+  // Sold-out items are never planned.
+  const allowed = MENU.filter((i) => !i.soldOut && !isExcluded(i, terms));
   const pizzas = allowed.filter((i): i is PizzaItem => i.kind === "pizza");
   const vegPizzas = pizzas.filter((p) => p.tags.includes("Vegetarian"));
   const nonVegPizzas = pizzas.filter((p) => !p.tags.includes("Vegetarian"));

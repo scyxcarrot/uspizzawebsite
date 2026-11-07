@@ -194,8 +194,9 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
 
   const named = MENU.find((i) => text.includes(i.name.toLowerCase()));
   if (named) {
-    await tool("get_item", { item: named.id });
-    streamText(emit, `(Mock) Here's the ${named.name}.`);
+    const outcome = await tool("get_item", { item: named.id });
+    const soldOut = JSON.stringify(outcome.result).includes('"sold_out"');
+    streamText(emit, soldOut ? `(Mock) Sorry, the ${named.name} is sold out right now.` : `(Mock) Here's the ${named.name}.`);
     finish();
     return;
   }

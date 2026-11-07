@@ -24,6 +24,9 @@ export type Outlet = {
   lng: number;
   /** Invented demo hours, the same every day. */
   hours: DemoHours;
+  /** A temporary closure set from the admin page (ISO time it ends, and a reason). */
+  closedUntil?: string;
+  closedReason?: string;
 };
 
 const h = (hh: number, mm = 0) => hh * 60 + mm;
@@ -113,6 +116,9 @@ export const OUTLETS_NOTE =
 
 /** Official Google Maps search URL (no API key) for the real outlets. */
 export const REAL_OUTLETS_MAP_URL = "https://www.google.com/maps/search/?api=1&query=US+Pizza+Kuala+Lumpur";
+
+/** The original outlets. `OUTLETS` is the live list (see src/lib/catalog.ts). */
+export const ORIGINAL_OUTLETS: readonly Outlet[] = structuredClone(OUTLETS);
 
 export function findOutlet(id: string): Outlet | undefined {
   return OUTLETS.find((o) => o.id === id);
