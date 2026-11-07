@@ -264,7 +264,7 @@ function MessageBubble(props: {
           <Markdown text={m.text} />
         </div>
       )}
-      {m.cards && m.cards.length > 0 && <ChatCards cards={m.cards} onAddPlan={props.onAddPlan} />}
+      {m.cards && m.cards.length > 0 && <ChatCards cards={m.cards} onAddPlan={props.onAddPlan} onViewCart={props.onViewCart} />}
       {m.cartNotes?.map((note, i) => (
         <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl bg-basil-tint px-3 py-2 text-sm font-semibold text-basil" data-testid="chat-cart-note">
           <CartIcon className="size-4" />

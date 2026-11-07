@@ -7,7 +7,7 @@ import { CATEGORIES, DIETARY_TAGS, MENU, findMenuItem, startingPrice, type MenuI
 import { SEEDED_ORDERS } from "@/data/orders";
 import { STORE, STORE_TOPICS } from "@/data/store";
 import { CRUST_IDS, SIZE_IDS, addLinesToCart, addToCart, describeLine, updateCartLine, type CartLine } from "@/lib/cart";
-import { planCard, type ChatCard } from "@/lib/chat/cards";
+import { MAX_ITEM_CARDS, planCard, type ChatCard } from "@/lib/chat/cards";
 import { formatRM } from "@/lib/money";
 import { findOrder, getOrderStatus, normaliseOrderId, statusLabel, type Order } from "@/lib/orders";
 import { MAX_PEOPLE, PLAN_RULE, planOrder } from "@/lib/planner";
@@ -246,16 +246,29 @@ export async function runTool(name: string, rawArgs: unknown, ctx: ToolContext):
   const args = parsed.data as never;
 
   switch (name) {
-    case "search_menu":
-      return { result: searchMenu(args) };
-    case "get_item":
-      return { result: getItem(args) };
+    case "search_menu": {
+      const result = searchMenu(args);
+      const ids = result.items.map((i) => String(i.id));
+      return {
+        result,
+        card: ids.length ? { kind: "items", itemIds: ids.slice(0, MAX_ITEM_CARDS), more: Math.max(0, ids.length - MAX_ITEM_CARDS) } : undefined,
+      };
+    }
+    case "get_item": {
+      const result = getItem(args);
+      return { result, card: result.found && result.item ? { kind: "items", itemIds: [String(result.item.id)], more: 0 } : undefined };
+    }
     case "get_store_info":
       return { result: getStoreInfo(args) };
-    case "get_order_status":
-      return { result: getOrderStatusTool(args, ctx) };
+    case "get_order_status": {
+      const result = getOrderStatusTool(args, ctx);
+      return { result, card: result.found && result.order_id ? { kind: "order", orderId: result.order_id } : undefined };
+    }
     case "get_cart":
-      return { result: { ok: true, cart: cartForModel(ctx.cart, ctx.fulfilment) } };
+      return {
+        result: { ok: true, cart: cartForModel(ctx.cart, ctx.fulfilment) },
+        card: ctx.cart.length ? { kind: "cart", fulfilment: ctx.fulfilment, lines: ctx.cart } : undefined,
+      };
     case "add_to_cart":
       return addToCartTool(args, ctx);
     case "update_cart":

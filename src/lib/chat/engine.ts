@@ -80,7 +80,7 @@ export async function runChatTurn(args: {
     pendingPlan: request.pendingPlan,
   };
   const sources: Source[] = [];
-  const cards: ChatCard[] = [];
+  const turn: TurnCards = { cards: [], cartChanged: false };
 
   // The model for this turn. It switches to the fallback (for the rest of the
   // turn) only when the main model returns a rate-limit or quota error.
@@ -156,7 +156,7 @@ export async function runChatTurn(args: {
           emit({ type: "text", delta: "Sorry, I couldn't come up with an answer to that. Could you rephrase it?" });
         }
         if (sources.length) emit({ type: "sources", sources: dedupeSources(sources) });
-        for (const card of finalCards(cards)) emit({ type: "card", card });
+        for (const card of finalCards(turn)) emit({ type: "card", card });
         console.info(`[chat] answered by ${model}`);
         console.info(`[chat] model calls: ${timings.join(", ")}`);
         emit({ type: "done" });
@@ -169,7 +169,7 @@ export async function runChatTurn(args: {
         const name = call.name ?? "";
         emit({ type: "status", text: isToolName(name) ? TOOL_STATUS[name] : "Working on it…", tool: name });
         const outcome = await runTool(name, call.args, ctx);
-        applyOutcome(outcome, ctx, emit, cards);
+        applyOutcome(outcome, ctx, emit, turn);
         if (outcome.sources) sources.push(...outcome.sources);
         responses.push({ functionResponse: { id: call.id, name, response: outcome.result } });
       }
@@ -224,9 +224,13 @@ export async function webSearch(
   }
 }
 
+/** Cards collected during one reply. */
+export type TurnCards = { cards: ChatCard[]; cartChanged: boolean };
+
 /** Apply a tool's side effects for this turn: cart changes go to the browser now, cards at the end. */
-export function applyOutcome(outcome: ToolOutcome, ctx: ToolContext, emit: Emit, cards: ChatCard[]) {
+export function applyOutcome(outcome: ToolOutcome, ctx: ToolContext, emit: Emit, turn: TurnCards) {
   if (outcome.cart) {
+    turn.cartChanged = true;
     ctx.cart = outcome.cart; // later tools in this turn see the new cart
     if (outcome.planAdded) ctx.pendingPlan = undefined; // can't be added twice
     emit({
@@ -236,13 +240,22 @@ export function applyOutcome(outcome: ToolOutcome, ctx: ToolContext, emit: Emit,
       ...(outcome.planAdded ? { planAdded: true } : {}),
     });
   }
-  if (outcome.card) cards.push(outcome.card);
+  if (outcome.card) turn.cards.push(outcome.card);
 }
 
-/** Cards to show under the reply: only the latest plan, and at most a few in all. */
-export function finalCards(cards: ChatCard[]): ChatCard[] {
-  const lastPlan = cards.findLast((c) => c.kind === "plan");
-  return cards.filter((c) => c.kind !== "plan" || c === lastPlan).slice(-3);
+/**
+ * Cards to show under the reply. Only the latest card of each kind is kept.
+ * When the reply changed the cart, menu lookups were just a step towards that
+ * change (the cart note shows the result), so item cards are left out.
+ */
+export function finalCards(turn: TurnCards): ChatCard[] {
+  const latest = new Map<ChatCard["kind"], ChatCard>();
+  for (const card of turn.cards) {
+    if (card.kind === "items" && turn.cartChanged) continue;
+    latest.delete(card.kind);
+    latest.set(card.kind, card);
+  }
+  return [...latest.values()].slice(-3);
 }
 
 function dedupeSources(list: Source[]): Source[] {

@@ -78,3 +78,48 @@ test.describe("group order planner (mock mode)", () => {
     await expectNoHorizontalScroll(page);
   });
 });
+
+test.describe("rich chat cards (mock mode)", () => {
+  test("item cards show real prices and tags, and their buttons add without asking the AI", async ({ page }, testInfo) => {
+    await page.goto("/");
+    await openChat(page);
+    await ask(page, "Which vegetarian pizzas do you have?");
+    const cards = page.getByTestId("chat-item-card");
+    await expect(cards).toHaveCount(2);
+    await expect(cards.first()).toContainText("Margherita");
+    await expect(cards.first()).toContainText("Regular RM 22.00 · Large RM 34.00");
+    await expect(cards.first()).toContainText("Vegetarian");
+    await expectNoHorizontalScroll(page);
+    await screenshot(page, testInfo, "item-cards");
+
+    let chatRequests = 0;
+    page.on("request", (r) => {
+      if (r.url().includes("/api/chat")) chatRequests++;
+    });
+    await page.getByRole("button", { name: "Add a Large Margherita" }).click();
+    await expect(page.getByTestId("cart-count")).toHaveText("1");
+    await expect(page.getByTestId("notice")).toContainText("Added to cart: 1 × Large Margherita (Hand-Tossed)");
+    expect(chatRequests).toBe(0);
+  });
+
+  test("cart and order status cards", async ({ page }, testInfo) => {
+    await page.goto("/");
+    await openChat(page);
+    await ask(page, "Add a cola");
+    await expect(page.getByTestId("cart-count")).toHaveText("1");
+    await ask(page, "What's in my cart?");
+    const cart = page.getByTestId("chat-cart-card");
+    await expect(cart).toContainText("1 × Cola");
+    await expect(cart.getByTestId("chat-cart-card-total")).toHaveText("RM 10.00");
+    await expect(cart).toContainText("Add RM 15.00 more, or choose pickup");
+
+    await ask(page, "Where's order US-1002?");
+    const order = page.getByTestId("chat-order-card");
+    await expect(order.getByTestId("chat-order-status")).toHaveText("Out for delivery");
+    await expect(order.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "75");
+    await expectNoHorizontalScroll(page);
+    await screenshot(page, testInfo, "order-card");
+    await order.getByRole("link", { name: "Open order tracker" }).click();
+    await expect(page).toHaveURL(/\/order\/US-1002$/);
+  });
+});

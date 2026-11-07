@@ -279,3 +279,28 @@ describe("plan_order and add_plan_to_cart", () => {
     expect(out.cart).toBeUndefined();
   });
 });
+
+describe("cards built from tool results", () => {
+  it("search_menu sends item IDs, at most 6, with a count of the rest", async () => {
+    const out = await runTool("search_menu", { category: "pizzas" }, ctx());
+    expect(out.card).toEqual({ kind: "items", itemIds: expect.any(Array), more: 2 });
+    expect(out.card && out.card.kind === "items" && out.card.itemIds).toHaveLength(6);
+  });
+
+  it("get_item sends one item card, and none when not found", async () => {
+    expect((await runTool("get_item", { item: "Margherita" }, ctx())).card).toEqual({ kind: "items", itemIds: ["margherita"], more: 0 });
+    expect((await runTool("get_item", { item: "sushi" }, ctx())).card).toBeUndefined();
+  });
+
+  it("get_order_status sends an order card only for a real order", async () => {
+    expect((await runTool("get_order_status", { order_id: "US-1002" }, ctx())).card).toEqual({ kind: "order", orderId: "US-1002" });
+    expect((await runTool("get_order_status", { order_id: "US-9999" }, ctx())).card).toBeUndefined();
+  });
+
+  it("get_cart sends a cart card only when the cart has something in it", async () => {
+    expect((await runTool("get_cart", {}, ctx())).card).toBeUndefined();
+    const start = addToCart([], { itemId: "cola", quantity: 1 });
+    const cart = start.ok ? start.cart : [];
+    expect((await runTool("get_cart", {}, ctx({ cart, fulfilment: "pickup" }))).card).toEqual({ kind: "cart", fulfilment: "pickup", lines: cart });
+  });
+});

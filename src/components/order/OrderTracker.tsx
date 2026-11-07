@@ -38,7 +38,7 @@ export function OrderTracker({ id }: { id: string }) {
 }
 
 /** Re-render every `intervalMs` so the status updates without a refresh. */
-function useNow(intervalMs: number): Date {
+export function useNow(intervalMs: number): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), intervalMs);

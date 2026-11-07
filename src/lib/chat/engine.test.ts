@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Content, GenerateContentResponse, Part } from "@google/genai";
 import type { AiConfig } from "@/lib/chat/config";
-import { runChatTurn, type GenAiClient } from "@/lib/chat/engine";
+import { finalCards, runChatTurn, type GenAiClient } from "@/lib/chat/engine";
 import type { ChatRequest } from "@/lib/chat/request";
 import type { ChatEvent } from "@/lib/chat/types";
 import { planOrder } from "@/lib/planner";
@@ -211,5 +211,17 @@ describe("model fallback", () => {
     const { events } = await run([{ error: quotaError() }, { parts: [[{ text: "Hi" }]] }]);
     expect(info).toHaveBeenCalledWith("[chat] answered by fallback-model");
     expect(JSON.stringify(events)).not.toMatch(/model/);
+  });
+});
+
+describe("finalCards", () => {
+  const items = { kind: "items" as const, itemIds: ["cola"], more: 0 };
+  const order = { kind: "order" as const, orderId: "US-1002" };
+  it("keeps the latest card of each kind", () => {
+    const later = { ...items, itemIds: ["margherita"] };
+    expect(finalCards({ cards: [items, order, later], cartChanged: false })).toEqual([order, later]);
+  });
+  it("leaves out item lookups when the reply changed the cart", () => {
+    expect(finalCards({ cards: [items, order], cartChanged: true })).toEqual([order]);
   });
 });

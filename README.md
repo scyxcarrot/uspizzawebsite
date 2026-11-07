@@ -55,6 +55,7 @@ Every change is listed on the card. If even the smallest basket is over budget (
 - On every page; same conversation across pages
 - Streams replies word by word, and shows what it is doing ("Checking the menu…")
 - Reads the menu, store information, orders and cart; adds and removes cart items
+- Rich cards under its replies, built by code from tool results (never HTML from the model): menu items with image, price, tags and quick-add buttons; the group order plan; a cart summary; and an order status card with a live progress bar. Card buttons work without another AI request
 - Web search with sources for live questions (needs a paid-tier key; see "Web search status")
 - Replies in the customer's language (English, Malay, Chinese)
 - Clear-chat button, suggested starter questions, keyboard and screen-reader support

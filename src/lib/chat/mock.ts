@@ -5,7 +5,7 @@
 
 import { MENU } from "@/data/menu";
 import type { ChatCard } from "@/lib/chat/cards";
-import { applyOutcome, finalCards, type Emit } from "@/lib/chat/engine";
+import { applyOutcome, finalCards, type Emit, type TurnCards } from "@/lib/chat/engine";
 import type { ChatRequest } from "@/lib/chat/request";
 import { TOOL_STATUS, runTool, type ToolContext, type ToolName } from "@/lib/chat/tools";
 
@@ -30,16 +30,16 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
     }),
     pendingPlan: request.pendingPlan,
   };
-  const cards: ChatCard[] = [];
+  const turn: TurnCards = { cards: [] as ChatCard[], cartChanged: false };
   /** Run a real tool, apply its cart change and keep its card, like the live engine. */
   const tool = async (name: ToolName, args: Record<string, unknown>) => {
     emit({ type: "status", text: TOOL_STATUS[name], tool: name });
     const outcome = await runTool(name, args, ctx);
-    applyOutcome(outcome, ctx, emit, cards);
+    applyOutcome(outcome, ctx, emit, turn);
     return outcome;
   };
   const finish = () => {
-    for (const card of finalCards(cards)) emit({ type: "card", card });
+    for (const card of finalCards(turn)) emit({ type: "card", card });
     emit({ type: "done" });
   };
 
@@ -103,6 +103,40 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
       streamText(emit, `(Mock) Sorry, I couldn't add that: ${String(outcome.result.error)}`);
     }
     emit({ type: "done" });
+    return;
+  }
+
+  const orderId = text.match(/\bus-?\d{4}\b/);
+  if (orderId) {
+    const outcome = await tool("get_order_status", { order_id: orderId[0] });
+    streamText(
+      emit,
+      outcome.result.found ? `(Mock) Order ${String(outcome.result.order_id)} is ${String(outcome.result.status)}.` : "(Mock) I couldn't find that order.",
+    );
+    finish();
+    return;
+  }
+
+  if (/\bcart\b/.test(text)) {
+    const outcome = await tool("get_cart", {});
+    const cart = outcome.result.cart as { total: string; item_count: number };
+    streamText(emit, cart.item_count ? `(Mock) Your cart comes to ${cart.total}.` : "(Mock) Your cart is empty.");
+    finish();
+    return;
+  }
+
+  if (/\b(vegetarian|veggie)\b/.test(text) && /\bpizzas?\b/.test(text)) {
+    await tool("search_menu", { category: "pizzas", dietary_tag: "Vegetarian" });
+    streamText(emit, "(Mock) Here are our vegetarian pizzas.");
+    finish();
+    return;
+  }
+
+  const named = MENU.find((i) => text.includes(i.name.toLowerCase()));
+  if (named) {
+    await tool("get_item", { item: named.id });
+    streamText(emit, `(Mock) Here's the ${named.name}.`);
+    finish();
     return;
   }
 
