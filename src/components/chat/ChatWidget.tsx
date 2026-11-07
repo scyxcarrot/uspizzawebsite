@@ -3,7 +3,9 @@
 // The AI chat widget: a button on every page that opens a floating panel on
 // tablet/desktop, or a full-screen view on phones.
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { findMenuItem } from "@/data/menu";
 import { useAppState } from "@/components/AppStateProvider";
 import { CartIcon, ChatIcon, CloseIcon, RefreshIcon, SendIcon, TrashIcon } from "@/components/Icons";
 import { ChatCards } from "@/components/chat/ChatCards";
@@ -14,9 +16,15 @@ import type { PlanCard } from "@/lib/chat/cards";
 import type { ChatMessage } from "@/lib/chat/types";
 
 export function ChatWidget() {
-  const [open, setOpen] = useState(false);
+  const { setCartOpen, cartOpen, chatOpen: open, setChatOpen: setOpen, focusItemId, setFocusItemId } = useAppState();
   const chat = useChat();
-  const { setCartOpen, cartOpen } = useAppState();
+  const pathname = usePathname();
+  const focusItem = focusItemId ? findMenuItem(focusItemId) : undefined;
+
+  // The open item only matters on the menu page.
+  useEffect(() => {
+    if (pathname !== "/") setFocusItemId(null);
+  }, [pathname, setFocusItemId]);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -149,6 +157,23 @@ export function ChatWidget() {
           <p className="sr-only" aria-live="polite" role="status">
             {chat.announcement}
           </p>
+
+          {focusItem && (
+            <div className="flex shrink-0 items-center gap-2 border-t border-line bg-white px-3 pt-2 text-sm" data-testid="chat-context">
+              <span className="min-w-0 flex-1 truncate text-ink-soft">
+                Asking about: <span className="font-bold text-ink">{focusItem.name}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setFocusItemId(null)}
+                className="grid size-11 shrink-0 place-items-center rounded-full text-ink-soft hover:bg-crust hover:text-ink"
+                aria-label={`Stop asking about ${focusItem.name}`}
+                data-testid="chat-context-clear"
+              >
+                <CloseIcon className="size-4" />
+              </button>
+            </div>
+          )}
 
           <form
             onSubmit={submit}

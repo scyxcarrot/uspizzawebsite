@@ -76,6 +76,33 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
     return;
   }
 
+  // Page awareness: "Is this spicy?" / "Add this" while an item is open.
+  const open = request.page?.itemId ? MENU.find((i) => i.id === request.page?.itemId) : undefined;
+  if (open && /\b(this|it|this one)\b/.test(text)) {
+    if (/\badd\b/.test(text)) {
+      const size = /\blarge\b/.test(text) ? "large" : /\bregular\b/.test(text) ? "regular" : undefined;
+      if (open.kind === "pizza" && !size) {
+        streamText(emit, `(Mock) Sure! Which size would you like for the ${open.name}: Regular or Large?`);
+        finish();
+        return;
+      }
+      const outcome = await tool("add_to_cart", { item: open.id, quantity: 1, ...(size ? { size } : {}) });
+      streamText(emit, outcome.cart ? `(Mock) Done! ${outcome.cartMessage}.` : `(Mock) Sorry: ${String(outcome.result.error)}`);
+      finish();
+      return;
+    }
+    await tool("get_item", { item: open.id });
+    const spicy = open.tags.includes("Spicy");
+    streamText(
+      emit,
+      /\bspicy\b/.test(text)
+        ? `(Mock) ${spicy ? "Yes" : "No"}, the ${open.name} is ${spicy ? "" : "not "}spicy.`
+        : `(Mock) Here's the ${open.name}.`,
+    );
+    finish();
+    return;
+  }
+
   if (/\badd\b/.test(text)) {
     const item = MENU.find(
       (i) => text.includes(i.name.toLowerCase()) || i.id.split("-").some((p) => p.length >= 4 && text.includes(p)),

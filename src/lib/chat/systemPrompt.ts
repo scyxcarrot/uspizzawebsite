@@ -1,3 +1,5 @@
+import { findMenuItem } from "@/data/menu";
+import type { PageContext } from "@/lib/chat/request";
 import { formatMalaysiaNow } from "@/lib/time";
 
 // Based on the prompt in the brief, with a few additions that testing
@@ -42,6 +44,30 @@ Rules:
 
 Formatting: use short paragraphs, "- " bullet lists, and **bold** sparingly. Show prices as "RM 22.00". Only link to https web pages or to /checkout. Do not use headings, tables, or HTML.`;
 
-export function buildSystemPrompt(now: Date = new Date()): string {
-  return TEMPLATE.replace("{{NOW}}", formatMalaysiaNow(now));
+export function buildSystemPrompt(now: Date = new Date(), page?: PageContext): string {
+  const base = TEMPLATE.replace("{{NOW}}", formatMalaysiaNow(now));
+  const context = pageContextText(page);
+  return context ? `${base}\n\n${context}` : base;
+}
+
+/** Built only from validated values (a known page, a real item ID, a normalised order ID). */
+export function pageContextText(page?: PageContext): string | undefined {
+  if (!page) return undefined;
+  const where = {
+    menu: "the menu page",
+    checkout: "the checkout page",
+    track: "the order tracking page",
+    order: `the tracking page for order ${page.orderId}`,
+  }[page.page];
+  const lines = [`Where the customer is: ${where}.`];
+  if (page.page === "order" && page.orderId) {
+    lines.push(`If they ask about "my order" or "this order" without an ID, they mean ${page.orderId}.`);
+  }
+  const item = page.itemId ? findMenuItem(page.itemId) : undefined;
+  if (item) {
+    lines.push(
+      `They are looking at the menu item "${item.name}" (id: ${item.id}). If they say "this", "it" or "this one" without naming an item, they mean ${item.name}: use get_item or add_to_cart with item "${item.id}". Pizzas still need a size.`,
+    );
+  }
+  return lines.join(" ");
 }

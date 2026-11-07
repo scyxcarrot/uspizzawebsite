@@ -123,3 +123,44 @@ test.describe("rich chat cards (mock mode)", () => {
     await expect(page).toHaveURL(/\/order\/US-1002$/);
   });
 });
+
+test.describe("page awareness (mock mode)", () => {
+  test("'Is this spicy?' and 'add this' work for the open item without naming it", async ({ page }, testInfo) => {
+    await page.goto("/");
+    await page.getByTestId("item-spicy-sambal-chicken").click();
+    const dialog = page.getByTestId("item-dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByTestId("ask-about-item").click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId("chat-panel")).toBeVisible();
+    await expect(page.getByTestId("chat-context")).toContainText("Asking about: Spicy Sambal Chicken");
+    await expectNoHorizontalScroll(page);
+
+    // The request carries the open item.
+    const sent = page.waitForRequest((r) => r.url().includes("/api/chat"));
+    await ask(page, "Is this spicy?");
+    expect((await sent).postDataJSON().page).toEqual({ path: "/", itemId: "spicy-sambal-chicken" });
+    await expect(page.getByTestId("chat-assistant-message").last()).toContainText("Yes, the Spicy Sambal Chicken is spicy");
+    await expect(page.getByTestId("chat-item-card")).toHaveAttribute("data-item-id", "spicy-sambal-chicken");
+    await screenshot(page, testInfo, "page-awareness");
+
+    await ask(page, "Add this, large");
+    await expect(page.getByTestId("chat-cart-note").last()).toContainText("Added to cart: 1 × Large Spicy Sambal Chicken (Hand-Tossed)");
+    await expect(page.getByTestId("cart-count")).toHaveText("1");
+
+    // Clearing the context stops sending the item.
+    await page.getByTestId("chat-context-clear").click();
+    await expect(page.getByTestId("chat-context")).toBeHidden();
+    const next = page.waitForRequest((r) => r.url().includes("/api/chat"));
+    await ask(page, "Is this spicy?");
+    expect((await next).postDataJSON().page).toEqual({ path: "/" });
+  });
+
+  test("sends the current page from other pages", async ({ page }) => {
+    await page.goto("/track");
+    await openChat(page);
+    const sent = page.waitForRequest((r) => r.url().includes("/api/chat"));
+    await ask(page, "Hello");
+    expect((await sent).postDataJSON().page).toEqual({ path: "/track" });
+  });
+});

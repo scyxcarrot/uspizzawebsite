@@ -100,7 +100,7 @@ export async function runChatTurn(args: {
           model: modelName,
           contents,
           config: {
-            systemInstruction: buildSystemPrompt(now),
+            systemInstruction: buildSystemPrompt(now, request.page),
             tools: [{ functionDeclarations: TOOL_DECLARATIONS.map((t) => ({ ...t })) }],
             maxOutputTokens: LIMITS.maxOutputTokens,
             abortSignal,

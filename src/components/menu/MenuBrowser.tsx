@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useAppState } from "@/components/AppStateProvider";
 import { CATEGORIES, MENU, startingPrice, type CategoryId, type MenuItem } from "@/data/menu";
 import { formatRM } from "@/lib/money";
 import { PlusIcon } from "@/components/Icons";
@@ -10,6 +11,7 @@ import { TagList } from "@/components/menu/Tags";
 
 export function MenuBrowser() {
   const [selected, setSelected] = useState<MenuItem | null>(null);
+  const { setFocusItemId } = useAppState();
   const active = useActiveCategory();
 
   return (
@@ -26,7 +28,14 @@ export function MenuBrowser() {
               <ul className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                 {items.map((item) => (
                   <li key={item.id}>
-                    <ItemCard item={item} onSelect={() => setSelected(item)} />
+                    <ItemCard
+                      item={item}
+                      onSelect={() => {
+                        setSelected(item);
+                        // The assistant knows which item is open ("Is this spicy?").
+                        setFocusItemId(item.id);
+                      }}
+                    />
                   </li>
                 ))}
               </ul>

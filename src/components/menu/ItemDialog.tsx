@@ -6,7 +6,7 @@ import { CRUSTS, DEFAULT_CRUST, SIZES, type CrustId, type MenuItem, type SizeId 
 import { formatRM } from "@/lib/money";
 import { unitPriceSen } from "@/lib/pricing";
 import { useAppState } from "@/components/AppStateProvider";
-import { CloseIcon } from "@/components/Icons";
+import { ChatIcon, CloseIcon } from "@/components/Icons";
 import { Modal } from "@/components/Modal";
 import { QuantityStepper } from "@/components/QuantityStepper";
 import { AllergenList, TagList } from "@/components/menu/Tags";
@@ -23,7 +23,7 @@ export function ItemDialog({ item, onClose }: Props) {
 }
 
 function ItemDialogBody({ item, onClose }: { item: MenuItem; onClose: () => void }) {
-  const { addItem, showNotice } = useAppState();
+  const { addItem, showNotice, setChatOpen, setFocusItemId } = useAppState();
   const [size, setSize] = useState<SizeId>("regular");
   const [crust, setCrust] = useState<CrustId>(DEFAULT_CRUST);
   const [quantity, setQuantity] = useState(1);
@@ -73,6 +73,18 @@ function ItemDialogBody({ item, onClose }: { item: MenuItem; onClose: () => void
           <TagList tags={item.tags} />
         </div>
         <AllergenList allergens={item.allergens} className="mt-3" />
+        <button
+          type="button"
+          onClick={() => {
+            setFocusItemId(item.id);
+            onClose();
+            setChatOpen(true);
+          }}
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border-2 border-line px-3.5 text-sm font-bold hover:border-ink"
+          data-testid="ask-about-item"
+        >
+          <ChatIcon className="size-4" /> Ask the assistant about this
+        </button>
 
         {isPizza && (
           <>

@@ -4,6 +4,7 @@
 // The conversation is saved in localStorage so it survives refreshes and
 // page changes.
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
 import { sanitizeCard, sanitizeCards, type PlanCard } from "@/lib/chat/cards";
@@ -47,7 +48,8 @@ const markPlansAdded = (m: ChatMessage): ChatMessage => ({
 });
 
 export function useChat() {
-  const { cart, orders, fulfilment, replaceCart, showNotice, addLines } = useAppState();
+  const { cart, orders, fulfilment, replaceCart, showNotice, addLines, focusItemId } = useAppState();
+  const pathname = usePathname();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -57,8 +59,8 @@ export function useChat() {
   const abortRef = useRef<AbortController | null>(null);
 
   // Keep the latest values in refs so the send function always uses them.
-  const latest = useRef({ messages, cart, orders, fulfilment });
-  latest.current = { messages, cart, orders, fulfilment };
+  const latest = useRef({ messages, cart, orders, fulfilment, pathname, focusItemId });
+  latest.current = { messages, cart, orders, fulfilment, pathname, focusItemId };
 
   useEffect(() => {
     // One-off read from browser storage after hydration (see AppStateProvider).
@@ -110,6 +112,8 @@ export function useChat() {
             orders: latest.current.orders,
             fulfilment: latest.current.fulfilment,
             pendingPlan: pendingPlan(conversation)?.lines,
+            // Where the customer is, so "is this spicy?" works. Validated on the server.
+            page: { path: latest.current.pathname, ...(latest.current.focusItemId ? { itemId: latest.current.focusItemId } : {}) },
           }),
         });
 

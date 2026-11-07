@@ -54,6 +54,11 @@ type AppState = {
   placeOrder: (customer: Customer) => Order;
   cartOpen: boolean;
   setCartOpen: (open: boolean) => void;
+  chatOpen: boolean;
+  setChatOpen: (open: boolean) => void;
+  /** The menu item the customer has open (or asked the assistant about), sent with chat requests. */
+  focusItemId: string | null;
+  setFocusItemId: (id: string | null) => void;
   notice: Notice | null;
   showNotice: (text: string, tone?: Notice["tone"]) => void;
 };
@@ -66,6 +71,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [fulfilment, setFulfilment] = useState<Fulfilment>("delivery");
   const [cartOpen, setCartOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [focusItemId, setFocusItemId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeId = useRef(0);
 
@@ -171,6 +178,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     placeOrder,
     cartOpen,
     setCartOpen,
+    chatOpen,
+    setChatOpen,
+    focusItemId,
+    setFocusItemId,
     notice,
     showNotice,
   };
