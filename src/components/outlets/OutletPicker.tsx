@@ -4,6 +4,7 @@
 // when the customer taps "Use my location", is kept in memory for this visit
 // only, and is never saved or sent anywhere except a chat request.
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { AREAS, OUTLETS, OUTLETS_NOTE, REAL_OUTLETS_MAP_URL, type Outlet } from "@/data/outlets";
 import {
@@ -24,6 +25,12 @@ import { Modal } from "@/components/Modal";
 
 type Origin = LatLng & { label: string };
 
+// Client-only, loaded when the customer opens it. Without it the picker works as before.
+const OutletMap = dynamic(() => import("@/components/outlets/OutletMap"), {
+  ssr: false,
+  loading: () => <div className="h-60 animate-pulse rounded-2xl bg-crust" aria-hidden />,
+});
+
 export function OutletPicker() {
   const { outletPicker, closeOutletPicker } = useAppState();
   return (
@@ -39,6 +46,8 @@ function PickerBody({ initialMode, onClose }: { initialMode: Fulfilment; onClose
   const [origin, setOrigin] = useState<Origin | null>(location ? { ...location, label: "your location" } : null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const radiusOutlet = mode === "delivery" && origin ? nearestDeliveryOutlet(origin)?.outlet : undefined;
 
   function useMyLocation() {
     setLocationError(null);
@@ -124,6 +133,19 @@ function PickerBody({ initialMode, onClose }: { initialMode: Fulfilment; onClose
               {locationError}
             </p>
           )}
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowMap((v) => !v)}
+            aria-expanded={showMap}
+            className="inline-flex min-h-11 items-center gap-1 rounded-full px-1 font-semibold text-brand underline underline-offset-2"
+            data-testid="toggle-map"
+          >
+            {showMap ? "Hide map" : "Show map"}
+          </button>
+          {showMap && <OutletMap origin={origin} radiusOutlet={radiusOutlet} />}
         </div>
 
         {mode === "delivery" ? (

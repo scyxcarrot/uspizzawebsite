@@ -114,3 +114,38 @@ test.describe("outlet selection", () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
   });
 });
+
+test.describe("outlet map", () => {
+  // A 1×1 PNG, so tests never load real OpenStreetMap tiles.
+  const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+
+  test("shows outlets, the customer's pin and the delivery radius, with attribution", async ({ page, context }, testInfo) => {
+    await page.route("https://tile.openstreetmap.org/**", (r) => r.fulfill({ contentType: "image/png", body: PIXEL }));
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation(BANGSAR);
+    await page.goto("/");
+    await page.getByTestId("outlet-start-delivery").click();
+    const picker = page.getByTestId("outlet-picker");
+    await picker.getByTestId("use-my-location").click();
+    await expect(picker.getByTestId("delivery-result")).toBeVisible();
+    await picker.getByTestId("toggle-map").click();
+    const map = picker.getByTestId("outlet-map");
+    await expect(map).toBeVisible();
+    await expect(map.locator(".leaflet-control-attribution")).toContainText("OpenStreetMap");
+    // 6 outlets + the radius circle + the customer's pin.
+    await expect(map.locator("path.leaflet-interactive")).toHaveCount(8);
+    await expectNoHorizontalScroll(page);
+    await screenshot(page, testInfo, "outlet-map");
+  });
+
+  test("the picker still works when the map tiles fail to load", async ({ page }) => {
+    await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+    await page.goto("/");
+    await page.getByTestId("outlet-start-pickup").click();
+    const picker = page.getByTestId("outlet-picker");
+    await picker.getByTestId("toggle-map").click();
+    await expect(picker.getByTestId("outlet-map")).toBeVisible();
+    await picker.getByRole("button", { name: "Pick up at Demo Outlet – Cheras" }).click();
+    await expect(page.getByTestId("outlet-chip")).toContainText("Pickup at: Cheras");
+  });
+});
