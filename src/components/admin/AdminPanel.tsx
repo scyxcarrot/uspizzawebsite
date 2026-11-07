@@ -7,7 +7,7 @@ import type { Outlet } from "@/data/outlets";
 import type { Catalog } from "@/lib/catalog";
 import type { CatalogSource } from "@/lib/db/catalog-server";
 import type { AuditEntry } from "@/lib/db/store";
-import { formatMalaysiaDateTime, hoursLabel, isTemporarilyClosed } from "@/lib/outlets";
+import { formatMalaysiaDateTime, hoursLabel, isOpen24Hours, isTemporarilyClosed } from "@/lib/outlets";
 
 type Props = { catalog: Catalog; audit: AuditEntry[]; source: CatalogSource; canSave: boolean };
 type Message = { tone: "ok" | "error"; text: string } | null;
@@ -254,7 +254,19 @@ function OutletEditor({ outlet, disabled, send }: { outlet: Outlet; disabled: bo
         >
           Save hours
         </button>
+        {!isOpen24Hours(outlet) && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => void send("/api/admin/outlet", { id: outlet.id, opensAt: "00:00", closesAt: "00:00" })}
+            className={`${smallButton} border-2 border-ink`}
+            data-testid={`${id}-24h`}
+          >
+            Open 24 hours
+          </button>
+        )}
       </div>
+      <p className="mt-1 text-xs text-ink-soft">The same opening and closing time means open 24 hours. To close an outlet, use a temporary closure.</p>
       <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-line pt-3">
         {closed ? (
           <button

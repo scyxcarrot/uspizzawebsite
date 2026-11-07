@@ -7,9 +7,11 @@ export const STORE = {
   demoNotice:
     "This is a demo website with dummy data built for a job assessment. It is not an official US Pizza ordering channel, and no real orders are taken.",
   hours: {
-    open: "10:00",
-    close: "22:00",
-    summary: "10:00am to 10:00pm daily",
+    // All outlets are open 24 hours by default; an outlet can be closed
+    // temporarily from /admin (find_outlets reports it).
+    open: "00:00",
+    close: "24:00",
+    summary: "Open 24 hours, every day. An outlet may occasionally close for a short time; the outlet list shows which are open now.",
   },
   delivery: {
     area: "Klang Valley",

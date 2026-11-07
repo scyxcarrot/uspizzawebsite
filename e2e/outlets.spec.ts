@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSimple, expectNoHorizontalScroll, screenshot, useAfternoonClock } from "./helpers";
+import { addSimple, expectNoHorizontalScroll, screenshot } from "./helpers";
 
 const BANGSAR = { latitude: 3.1307, longitude: 101.671 };
 
@@ -64,14 +64,13 @@ test.describe("outlet selection", () => {
     const first = picker.getByTestId("pickup-outlet").first();
     await expect(first).toHaveAttribute("data-outlet-id", "subang-jaya");
     await expect(first).toContainText("km away");
-    await expect(first).toContainText(/Open now|Closed now/);
-    await expect(first).toContainText("daily");
+    await expect(first).toContainText("Open now");
+    await expect(first).toContainText("Open 24 hours");
     await first.getByRole("button", { name: "Pick up at Subang Jaya Outlet" }).click();
     await expect(page.getByTestId("outlet-chip")).toContainText("Pickup at: Subang Jaya");
   });
 
   test("pickup: search the list, choose, and the order shows the outlet", async ({ page }, testInfo) => {
-    await useAfternoonClock(page);
     await page.goto("/");
     await page.getByTestId("outlet-start-pickup").click();
     const picker = page.getByTestId("outlet-picker");

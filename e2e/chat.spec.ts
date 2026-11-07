@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSimple, chooseOutlet, isPhone, overlaps, screenshot, useAfternoonClock } from "./helpers";
+import { addSimple, chooseOutlet, isPhone, overlaps, screenshot } from "./helpers";
 
 async function openChat(page: Page) {
   await page.getByTestId("chat-launcher").click();
@@ -131,7 +131,6 @@ test.describe("chat failures keep ordering working", () => {
   });
 
   test("missing key and network failure show messages, and ordering still works", async ({ page }) => {
-    await useAfternoonClock(page);
     await page.route("**/api/chat", (route) =>
       route.fulfill({
         status: 503,

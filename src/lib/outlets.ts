@@ -96,7 +96,13 @@ export function closedMessage(outlet: Outlet, now: Date): string {
   return `${outlet.name} is closed right now. It opens at ${formatClock(outlet.hours.opensAt)}.`;
 }
 
+/** Opening and closing at the same time means open 24 hours. */
+export function isOpen24Hours(outlet: Outlet): boolean {
+  return outlet.hours.opensAt === outlet.hours.closesAt;
+}
+
 export function hoursLabel(outlet: Outlet): string {
+  if (isOpen24Hours(outlet)) return "Open 24 hours";
   return `${formatClock(outlet.hours.opensAt)} – ${formatClock(outlet.hours.closesAt)} daily`;
 }
 

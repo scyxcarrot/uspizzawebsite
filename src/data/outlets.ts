@@ -10,9 +10,15 @@
 export type DemoHours = {
   /** Minutes after midnight, Malaysia time. */
   opensAt: number;
-  /** Minutes after midnight. If smaller than opensAt, the outlet closes after midnight. */
+  /**
+   * Minutes after midnight. If smaller than opensAt, the outlet closes after
+   * midnight. If equal to opensAt, the outlet is open 24 hours.
+   */
   closesAt: number;
 };
+
+/** The default: every outlet is open 24 hours. Close one temporarily from /admin. */
+export const OPEN_24_HOURS: DemoHours = { opensAt: 0, closesAt: 0 };
 
 export type Outlet = {
   id: string;
@@ -22,14 +28,13 @@ export type Outlet = {
   address: string;
   lat: number;
   lng: number;
-  /** Invented demo hours, the same every day. */
+  /** Daily hours (open 24 hours by default), the same every day. */
   hours: DemoHours;
   /** A temporary closure set from the admin page (ISO time it ends, and a reason). */
   closedUntil?: string;
   closedReason?: string;
 };
 
-const h = (hh: number, mm = 0) => hh * 60 + mm;
 
 export const OUTLETS: Outlet[] = [
   {
@@ -39,7 +44,7 @@ export const OUTLETS: Outlet[] = [
     address: "Damansara Heights, Kuala Lumpur",
     lat: 3.152,
     lng: 101.661,
-    hours: { opensAt: h(10, 30), closesAt: h(23) },
+    hours: { ...OPEN_24_HOURS },
   },
   {
     id: "bangsar",
@@ -48,7 +53,7 @@ export const OUTLETS: Outlet[] = [
     address: "Bangsar, Kuala Lumpur",
     lat: 3.1307,
     lng: 101.671,
-    hours: { opensAt: h(10, 30), closesAt: h(1) },
+    hours: { ...OPEN_24_HOURS },
   },
   {
     id: "petaling-jaya",
@@ -57,7 +62,7 @@ export const OUTLETS: Outlet[] = [
     address: "SS2, Petaling Jaya, Selangor",
     lat: 3.1185,
     lng: 101.623,
-    hours: { opensAt: h(10), closesAt: h(22, 30) },
+    hours: { ...OPEN_24_HOURS },
   },
   {
     id: "subang-jaya",
@@ -66,7 +71,7 @@ export const OUTLETS: Outlet[] = [
     address: "SS15, Subang Jaya, Selangor",
     lat: 3.078,
     lng: 101.587,
-    hours: { opensAt: h(10, 30), closesAt: h(23, 30) },
+    hours: { ...OPEN_24_HOURS },
   },
   {
     id: "cheras",
@@ -75,7 +80,7 @@ export const OUTLETS: Outlet[] = [
     address: "Taman Connaught, Cheras, Kuala Lumpur",
     lat: 3.08,
     lng: 101.739,
-    hours: { opensAt: h(11), closesAt: h(23) },
+    hours: { ...OPEN_24_HOURS },
   },
   {
     id: "klcc",
@@ -84,7 +89,7 @@ export const OUTLETS: Outlet[] = [
     address: "KLCC, Kuala Lumpur",
     lat: 3.157,
     lng: 101.712,
-    hours: { opensAt: h(10), closesAt: h(22) },
+    hours: { ...OPEN_24_HOURS },
   },
 ];
 

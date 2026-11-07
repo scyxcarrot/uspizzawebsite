@@ -6,6 +6,7 @@ import {
   distanceKm,
   findArea,
   formatClock,
+  hoursLabel,
   isOpenAt,
   isPlausibleMalaysiaPoint,
   malaysiaMinutes,
@@ -83,8 +84,21 @@ describe("opening hours (Malaysia time)", () => {
     expect(malaysiaMinutes(myt(0, 15))).toBe(15);
   });
 
+  // Every outlet is open 24 hours by default; these use set hours (as an admin
+  // could set them) so the closing logic stays tested.
+  const withHours = (id: string, opensAt: number, closesAt: number) => ({ ...findOutlet(id)!, hours: { opensAt, closesAt } });
+
+  it("is open 24 hours by default, at any time of day", () => {
+    for (const id of ["damansara-heights", "bangsar", "petaling-jaya", "subang-jaya", "cheras", "klcc"]) {
+      const outlet = findOutlet(id)!;
+      expect(hoursLabel(outlet)).toBe("Open 24 hours");
+      for (const hour of [0, 3, 6, 10, 14, 22, 23]) expect(isOpenAt(outlet, myt(hour, 30))).toBe(true);
+    }
+  });
+
   it("is open between opening and closing", () => {
-    const klcc = findOutlet("klcc")!; // 10:00 am – 10:00 pm
+    const klcc = withHours("klcc", 600, 1320); // 10:00 am – 10:00 pm
+    expect(hoursLabel(klcc)).toBe("10:00 am – 10:00 pm daily");
     expect(isOpenAt(klcc, myt(9, 59))).toBe(false);
     expect(isOpenAt(klcc, myt(10, 0))).toBe(true);
     expect(isOpenAt(klcc, myt(21, 59))).toBe(true);
@@ -92,7 +106,7 @@ describe("opening hours (Malaysia time)", () => {
   });
 
   it("handles closing after midnight", () => {
-    const bangsar = findOutlet("bangsar")!; // 10:30 am – 1:00 am
+    const bangsar = withHours("bangsar", 630, 60); // 10:30 am – 1:00 am
     expect(isOpenAt(bangsar, myt(23, 30))).toBe(true);
     expect(isOpenAt(bangsar, myt(0, 30))).toBe(true);
     expect(isOpenAt(bangsar, myt(1, 0))).toBe(false);

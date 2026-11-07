@@ -4,11 +4,11 @@ export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1440) < 76
 
 /** Open the cart: the fixed "View cart" bar on phones, the header button elsewhere. */
 /**
- * Outlets only take orders while open, so tests that place an order run the
- * browser clock from 2 pm Malaysia time (the clock keeps ticking from there).
+ * Run the browser clock from 3 am Malaysia time (it keeps ticking from there),
+ * to show that orders work in the middle of the night: outlets are open 24 hours.
  */
-export async function useAfternoonClock(page: Page) {
-  await page.clock.install({ time: new Date("2026-11-07T06:00:00Z") });
+export async function useNightClock(page: Page) {
+  await page.clock.install({ time: new Date("2026-11-07T19:00:00Z") });
 }
 
 export async function openCart(page: Page) {

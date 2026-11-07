@@ -121,14 +121,23 @@ describe("outlet closures", () => {
     expect(errors.outlet).toMatch(/temporarily closed until 7 Nov, 4:00 pm \(Kitchen maintenance\)\. Please choose another outlet\./);
   });
 
-  it("outside its hours an outlet can't take orders", () => {
-    const night = new Date("2026-11-07T19:00:00Z"); // 3 am Malaysia time
-    const errors = validateCheckout(
+  const night = new Date("2026-11-07T19:00:00Z"); // 3 am Malaysia time
+  const nightOrder = () =>
+    validateCheckout(
       { fulfilment: "pickup", name: "Siti", phone: "0123456789", address: "", outletId: "klcc" },
       priceCart([{ lineId: "garlic-bread", itemId: "garlic-bread", quantity: 3 }], "pickup"),
       night,
     );
-    expect(errors.outlet).toMatch(/closed right now\. It opens at 10:00 am/);
+
+  it("outlets are open 24 hours by default, so orders work at 3 am", () => {
+    expect(nightOrder().outlet).toBeUndefined();
+  });
+
+  it("if an admin sets daily hours, outside them the outlet can't take orders", () => {
+    const c = originalCatalog();
+    c.outlets.find((o) => o.id === "klcc")!.hours = { opensAt: 600, closesAt: 1320 };
+    applyCatalog(c);
+    expect(nightOrder().outlet).toMatch(/closed right now\. It opens at 10:00 am/);
   });
 });
 
@@ -177,7 +186,13 @@ describe("admin change validation", () => {
     const outlet = findOutlet("klcc")!;
     const hours = applyOutletChange(outlet, { id: "klcc", opensAt: "09:00", closesAt: "23:30" });
     expect(hours.ok && hours.value.hours).toEqual({ opensAt: 540, closesAt: 1410 });
-    expect(applyOutletChange(outlet, { id: "klcc", opensAt: "10:00", closesAt: "10:00" }).ok).toBe(false);
+    // The same opening and closing time means open 24 hours.
+    if (hours.ok) {
+      const allDay = applyOutletChange(hours.value, { id: "klcc", opensAt: "10:00", closesAt: "10:00" });
+      expect(allDay.ok && allDay.value.hours).toEqual({ opensAt: 0, closesAt: 0 });
+      expect(allDay.ok && allDay.summary).toBe("KLCC Outlet: open 24 hours");
+    }
+    expect(applyOutletChange(outlet, { id: "klcc", opensAt: "00:00", closesAt: "00:00" }).ok).toBe(false); // already 24 hours
     const closed = applyOutletChange(outlet, { id: "klcc", closure: { hours: 2, reason: "Staff training" } }, AFTERNOON);
     expect(closed.ok && closed.value.closedUntil).toBe("2026-11-07T08:00:00.000Z");
     expect(closed.ok && closed.summary).toBe("KLCC Outlet: closed for 2 h (Staff training)");

@@ -161,9 +161,10 @@ export function applyOutletChange(outlet: Outlet, change: OutletChange, now: Dat
   const parts: string[] = [];
   if (change.opensAt !== undefined) next.hours.opensAt = toMinutes(change.opensAt);
   if (change.closesAt !== undefined) next.hours.closesAt = toMinutes(change.closesAt);
-  if (next.hours.opensAt === next.hours.closesAt) return { ok: false, error: "Opening and closing times can't be the same." };
+  // The same opening and closing time means open 24 hours (stored as 00:00–00:00).
+  if (next.hours.opensAt === next.hours.closesAt) next.hours = { opensAt: 0, closesAt: 0 };
   if (next.hours.opensAt !== outlet.hours.opensAt || next.hours.closesAt !== outlet.hours.closesAt) {
-    parts.push(`hours ${change.opensAt ?? "same"}–${change.closesAt ?? "same"}`);
+    parts.push(next.hours.opensAt === next.hours.closesAt ? "open 24 hours" : `hours ${change.opensAt ?? "same"}–${change.closesAt ?? "same"}`);
   }
   if (change.closure === null && outlet.closedUntil) {
     delete next.closedUntil;

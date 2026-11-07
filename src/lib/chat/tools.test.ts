@@ -314,8 +314,8 @@ describe("find_outlets and set_outlet", () => {
     const list = out.result.outlets as { id: string; distance: string; delivers_here: boolean; open_now: boolean; hours: string }[];
     expect(list.map((o) => o.id).sort()).toEqual(OUTLETS.map((o) => o.id).sort());
     expect(list[0]).toMatchObject({ id: "bangsar", delivers_here: true });
-    expect(list[0]!.hours).toMatch(/daily$/);
-    expect(typeof list[0]!.open_now).toBe("boolean");
+    expect(list[0]!.hours).toBe("Open 24 hours");
+    expect(list[0]!.open_now).toBe(true);
   });
 
   it("uses the shared location when no area is named", async () => {
