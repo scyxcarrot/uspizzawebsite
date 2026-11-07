@@ -222,6 +222,7 @@ export function ChatWidget() {
 }
 
 const STARTERS = [
+  "Feed 6 people under RM120, 2 are vegetarian, no beef",
   "Which vegetarian pizzas do you have?",
   "Add a large Margherita to my cart",
   "Where's order US-1002?",
@@ -234,8 +235,8 @@ function Welcome({ onAsk }: { onAsk: (question: string) => void }) {
       <div className="rounded-2xl bg-white p-4 shadow-card">
         <p className="font-display text-lg font-bold">Hi! I&apos;m the US Pizza Demo assistant. 🍕</p>
         <p className="mt-1 text-sm text-ink-soft">
-          Ask me about the menu, allergens, delivery, your order, or anything else. I can also add things to your
-          cart.
+          Ask me about the menu, allergens, delivery, your order, or anything else. I can add things to your cart,
+          or plan a whole order for a group.
         </p>
       </div>
       <div>

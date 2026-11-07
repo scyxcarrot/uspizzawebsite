@@ -10,6 +10,8 @@ A small pizza ordering website, using made-up menu and order data, with an AI as
 
 The assistant sits in the corner of every page. It can answer questions about the menu, allergens, delivery, refunds and your orders. It can add items to your cart or remove them. It can look up live information on the web, such as the weather, and it can answer general questions too.
 
+The standout feature is the **group order planner**: ask "Feed 6 people under RM120, 2 are vegetarian, no beef" and the assistant proposes a complete basket as a card, with the total, cost per person and anything it changed to fit the budget. One tap adds it all to the cart.
+
 The main design idea: **AI handles language, normal code handles facts.** The AI decides *what the customer is asking for*. Every price, total and order status comes from ordinary, tested code, so the assistant cannot make up a price or change one.
 
 ## 2. Features
@@ -92,7 +94,7 @@ Get a key from [Google AI Studio](https://aistudio.google.com/apikey). Without a
 | `npm run typecheck` | TypeScript in strict mode |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | Browser tests (Playwright) at 360×800, 390×844, 768×1024 and 1440×900. Builds the app and runs it in mock mode. First run: `npx playwright install chromium`. Screenshots go to `screenshots/`. |
-| `npm run eval:chat` | Sends the 20 acceptance questions to the **real** AI one at a time and prints a PASS / FAIL / REVIEW table. Start the app with a real key first (`npm run dev`). Options: `EVAL_BASE_URL`, `EVAL_DELAY_MS`, `EVAL_ONLY=4,12`. Replies are saved to `eval-results/` (not committed); the runs reported below are kept in `docs/eval-results/`. |
+| `npm run eval:chat` | Sends the 23 acceptance questions (the original 20, plus the group order planner, an impossible plan, and page awareness) to the **real** AI one at a time and prints a PASS / FAIL / REVIEW table. Start the app with a real key first (`npm run dev`). Options: `EVAL_BASE_URL`, `EVAL_DELAY_MS`, `EVAL_ONLY=4,12`. Replies are saved to `eval-results/` (not committed); the runs reported below are kept in `docs/eval-results/`. |
 | `node scripts/generate-menu-images.mjs` | Regenerates the menu illustrations |
 
 ### Model choice (checked 6 November 2026)
@@ -149,8 +151,8 @@ flowchart LR
 
   subgraph Server["Next.js server (Vercel)"]
     API["/api/chat<br/>validate, rate limit, stream"]
-    Tools["Tools (plain code)<br/>menu, store, orders, cart"]
-    Logic["src/lib<br/>pricing, cart, order status"]
+    Tools["Tools (plain code)<br/>menu, store, orders, cart, group plan"]
+    Logic["src/lib<br/>pricing, cart, order status, planner"]
     Data["src/data<br/>menu, store, seeded orders"]
     API --> Tools --> Logic --> Data
   end
@@ -158,15 +160,16 @@ flowchart LR
   Gemini["Gemini<br/>function calling"]
   Search["Gemini + Google Search<br/>(separate request)"]
 
-  Chat -- "messages + cart + orders" --> API
-  API -- "streamed reply + new cart" --> Chat
+  Chat -- "messages + cart + orders + page" --> API
+  API -- "streamed reply + new cart + cards" --> Chat
   API <--> Gemini
   Tools -- web_search --> Search
   UI --> Logic
 ```
 
 - `src/data`: typed menu, store information and three seeded orders
-- `src/lib`: pricing, cart changes, order status and checkout validation. Plain functions with unit tests, used by **both** the website and the chatbot
+- `src/lib`: pricing, cart changes, order status, checkout validation and the group order planner. Plain functions with unit tests, used by **both** the website and the chatbot
+- `src/lib/chat/cards.ts`: the chat cards (items, plan, cart, order). Built by code from tool results and validated again in the browser
 - `src/lib/chat`: the chatbot's tools, system prompt, request validation, rate limit, error handling and the Gemini loop
 - `src/app/api/chat/route.ts`: the only place Gemini is called
 - `src/components`: React components; `AppStateProvider` shares the cart and orders across pages
@@ -185,6 +188,8 @@ Gemini reads the question and chooses a tool. There is no separate classifier.
 | Order | "Where's US-1002?" | `get_order_status` calculates the status in code; unknown IDs return "not found" |
 | Cart | "Add two large pepperoni pizzas" | `add_to_cart` validates and reprices on the server; the browser cart updates immediately with a visible confirmation |
 | Live | "Weather in KL today?" | `web_search` makes a separate Gemini request with Google Search and returns sources |
+| Group order | "Feed 6 people under RM120, 2 are vegetarian, no beef" | `plan_order` builds the basket in code (see "Group order planner") and the chat shows it as a card; `add_plan_to_cart` adds it only after a clear yes |
+| About the open item | "Is this spicy?" (with an item open) | The request says which item is open; the server checks it is a real item and tells Gemini, which calls `get_item` |
 | General | "Explain inflation simply" | Gemini answers directly |
 
 Safety rules in the system prompt and the code:
@@ -253,12 +258,13 @@ Run on 6 and 7 November 2026 on Windows 11, Node 22.18. The raw replies for each
 |---|---|
 | `npm run lint` | Passed, no warnings |
 | `npm run typecheck` | Passed |
-| `npm test` (Vitest) | **137 / 137 passed.** Covers pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, the chatbot's delivery-minimum note (and none for pickup), checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
-| `npm run test:e2e` (Playwright) | **56 / 56 passed** (14 tests at each of the 4 sizes): full order from menu to tracking, chat adding to the cart (mock mode), no sideways scrolling, chat button not overlapping controls, cart and chat surviving a refresh, resizing, keyboard use, and failure messages (missing key, rate limit, network failure) with ordering still working |
+| `npm test` (Vitest) | **207 / 207 passed.** Covers the group order planner (portion rule, budgets never exceeded, exclusions and dietary needs never relaxed, impossible requests, totals matching the pricing functions, a plan never added twice), chat cards and their validation, page context validation, pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, the chatbot's delivery-minimum note (and none for pickup), checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
+| `npm run test:e2e` (Playwright) | **84 / 84 passed** (21 tests at each of the 4 sizes): the group order planner (plan card, nothing added until "Add all to cart", adding with no AI request, saying yes, an impossible budget), item, cart and order cards, page awareness ("Is this spicy?" and "Add this" for the open item), full order from menu to tracking, chat adding to the cart (mock mode), no sideways scrolling, chat button not overlapping controls, cart and chat surviving a refresh, resizing, keyboard use, and failure messages (missing key, rate limit, network failure) with ordering still working |
 | Function calling and streaming | Confirmed live on `gemini-3.5-flash-lite`: the model called `get_item` and the reply arrived in several streamed chunks |
 | Invalid API key | Checked against the real Gemini API with a fake key: the browser gets the friendly message, the raw error stays in the server log |
 | Daily cap | Checked live with the cap set to 1: the turn stopped after one Gemini call with the friendly message, and the next request was refused (HTTP 429) without calling Gemini |
 | Security check | No API key in Git history, tracked files or the built browser bundle; `.env.local` is ignored by Git; mock mode is refused when `VERCEL_ENV=production` (unit-tested) |
+| New features, live | A short check on `gemini-3.5-flash-lite` (6 Gemini requests), 7 November 2026: "Feed 6 people under RM120, 2 are vegetarian, no beef" called `plan_order` and proposed 1 × Large Margherita, 2 × Large Hawaiian Chicken and Garlic Bread for RM 119.00 (RM 19.83 per person), listing the budget changes, with nothing added; "Yes, add it" called `add_plan_to_cart` once; "Is this spicy?" with Spicy Sambal Chicken open answered "Yes" without asking which item. The full live evaluation of questions 21 to 23 is still to be run |
 | Live site | Tested on 7 November 2026 at https://uspizzawebsite.vercel.app with a real browser: a full order (Large Beef Pepperoni with Cheese-Stuffed crust and a Cola, RM 54.00 with delivery, through checkout to tracking) at desktop and phone sizes; a chat menu question (vegetarian pizzas, correct prices); and a chat request that added 2 × Large Beef Pepperoni to the cart. The Vercel logs showed no errors, and every reply came from `gemini-3.5-flash-lite`. Each Gemini call took 3 to 11 seconds there, slower than in local testing, but well inside the time limits |
 | Real phone | **Not tested yet.** Tested only with emulated phone sizes in Chromium. |
 
