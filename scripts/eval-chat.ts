@@ -343,7 +343,7 @@ const CASES: Case[] = [
   {
     n: 24,
     q: "Which outlet is nearest to Bangsar, and is it open now?",
-    expect: "find_outlets; names Demo Outlet – Bangsar, says open or closed from the tool, invents no outlet",
+    expect: "find_outlets; names Bangsar Outlet, says open or closed from the tool, invents no outlet",
     check: (r) => {
       const c = all(
         [usedAny(r, "find_outlets"), "find_outlets not used"],
@@ -358,7 +358,7 @@ const CASES: Case[] = [
   {
     n: 25,
     q: "Please switch me to pickup at the KLCC outlet",
-    expect: "set_outlet to Demo Outlet – KLCC for pickup; confirms the change",
+    expect: "set_outlet to KLCC Outlet for pickup; confirms the change",
     check: (r) =>
       all(
         [usedAny(r, "set_outlet"), "set_outlet not used"],

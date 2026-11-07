@@ -15,9 +15,9 @@ const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["l
 const body = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "US Pizza Demo – food ordering demo with AI assistant",
+  title: "US Pizza Demo – order pizza online",
   description:
-    "A demo food ordering website with dummy data and an AI chatbot, built for a job assessment. Not an official ordering channel.",
+    "Order pizza for delivery or pickup, plan group orders, and get help from the AI assistant.",
   robots: { index: false, follow: false },
 };
 

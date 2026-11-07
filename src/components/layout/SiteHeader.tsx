@@ -14,14 +14,8 @@ export function SiteHeader() {
     <header className="sticky top-0 z-30 h-16 border-b border-line bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-full max-w-6xl items-center gap-3 px-4 sm:px-6">
         <Link href="/" className="flex min-h-11 flex-col justify-center leading-none" aria-label="US Pizza Demo, menu">
-          <span className="font-display text-xl font-extrabold tracking-tight text-brand sm:text-2xl">
+          <span className="font-display text-xl font-extrabold tracking-tight text-brand sm:text-2xl" data-testid="site-name">
             US Pizza <span className="text-ink">Demo</span>
-          </span>
-          <span
-            className="mt-1 w-fit rounded-sm bg-gold-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ink"
-            data-testid="demo-label"
-          >
-            Demo with dummy data
           </span>
         </Link>
 

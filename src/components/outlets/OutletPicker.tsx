@@ -6,7 +6,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { AREAS, OUTLETS, OUTLETS_NOTE, REAL_OUTLETS_MAP_URL, type Outlet } from "@/data/outlets";
+import { AREAS, OUTLETS, REAL_OUTLETS_MAP_URL, type Outlet } from "@/data/outlets";
 import {
   DELIVERY_RADIUS_KM,
   deliveryEstimate,
@@ -155,7 +155,6 @@ function PickerBody({ initialMode, onClose }: { initialMode: Fulfilment; onClose
         )}
 
         <div className="space-y-1 rounded-xl border border-line bg-white px-3 py-2.5 text-sm" data-testid="outlet-disclaimer">
-          <p className="text-ink-soft">{OUTLETS_NOTE}</p>
           <p>
             <a
               href={REAL_OUTLETS_MAP_URL}
@@ -242,7 +241,7 @@ function DeliveryPanel(props: {
       )}
       {origin && !nearest && closest && (
         <div role="alert" className="rounded-2xl bg-gold-tint p-4" data-testid="delivery-out-of-range">
-          <p className="font-bold">No demo outlet delivers to {origin.label}.</p>
+          <p className="font-bold">None of our outlets deliver to {origin.label}.</p>
           <p className="mt-1 text-sm">
             The nearest is {closest.outlet.name}, {formatKm(closest.distanceKm)} away. You can pick up from there instead.
           </p>
@@ -258,7 +257,7 @@ function DeliveryPanel(props: {
       )}
       <AreaSearch onPick={props.setOrigin} selected={origin?.label} />
       <p className="text-xs text-ink-soft">
-        Demo assumption: each outlet delivers within {DELIVERY_RADIUS_KM} km in a straight line. Times are estimates.
+        Each outlet delivers within {DELIVERY_RADIUS_KM} km. Times are estimates.
       </p>
     </div>
   );

@@ -71,7 +71,7 @@ describe("nearest outlet and delivery radius", () => {
 
   it("finds areas and outlets by name", () => {
     expect(findArea("bangsar")?.name).toBe("Bangsar");
-    expect(findArea("Demo Outlet – KLCC")?.name).toBe("KLCC");
+    expect(findArea("KLCC Outlet")?.name).toBe("KLCC");
     expect(findArea("near Mont Kiara please")?.name).toBe("Mont Kiara");
     expect(findArea("Atlantis")).toBeUndefined();
   });

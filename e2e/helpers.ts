@@ -62,7 +62,7 @@ export async function chooseOutlet(page: Page, mode: "delivery" | "pickup" = "de
     await picker.getByRole("button", { name: "Petaling Jaya", exact: true }).click();
     await picker.getByTestId("choose-delivery-outlet").click();
   } else {
-    await picker.getByRole("button", { name: "Pick up at Demo Outlet – Petaling Jaya" }).click();
+    await picker.getByRole("button", { name: "Pick up at Petaling Jaya Outlet" }).click();
   }
   await expect(picker).toBeHidden();
   await expect(page.getByTestId("outlet-chip")).toContainText("Petaling Jaya");

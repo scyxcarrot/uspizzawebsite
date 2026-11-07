@@ -57,7 +57,7 @@ export default function OutletMap({ origin, radiusOutlet }: Props) {
             weight: 2,
             fillOpacity: 0.08,
           })
-            .bindTooltip(`${DELIVERY_RADIUS_KM} km demo delivery radius`)
+            .bindTooltip(`${DELIVERY_RADIUS_KM} km delivery radius`)
             .addTo(map);
         }
         if (origin) {
@@ -91,12 +91,12 @@ export default function OutletMap({ origin, radiusOutlet }: Props) {
         ref={el}
         className="h-60 w-full bg-crust"
         role="region"
-        aria-label="Map of demo outlets. The list gives the same information."
+        aria-label="Map of our outlets. The list gives the same information."
         data-testid="outlet-map"
       />
       <p className="bg-white px-3 py-1.5 text-xs text-ink-soft">
-        Red: demo outlets. Dark: {origin ? (origin.label === "your location" ? "you" : origin.label) : "your location, once shared"}.
-        {radiusOutlet ? ` Green: ${DELIVERY_RADIUS_KM} km demo delivery radius.` : ""} On phones, use two fingers to move the map.
+        Red: outlets. Dark: {origin ? (origin.label === "your location" ? "you" : origin.label) : "your location, once shared"}.
+        {radiusOutlet ? ` Green: ${DELIVERY_RADIUS_KM} km delivery radius.` : ""} On phones, use two fingers to move the map.
       </p>
     </div>
   );

@@ -314,7 +314,7 @@ describe("find_outlets and set_outlet", () => {
     const list = out.result.outlets as { id: string; distance: string; delivers_here: boolean; open_now: boolean; hours: string }[];
     expect(list.map((o) => o.id).sort()).toEqual(OUTLETS.map((o) => o.id).sort());
     expect(list[0]).toMatchObject({ id: "bangsar", delivers_here: true });
-    expect(list[0]!.hours).toMatch(/demo hours/);
+    expect(list[0]!.hours).toMatch(/daily$/);
     expect(typeof list[0]!.open_now).toBe("boolean");
   });
 
@@ -339,7 +339,7 @@ describe("find_outlets and set_outlet", () => {
 
   it("changes outlet only to a real one, and checks the delivery radius", async () => {
     const ok = await runTool("set_outlet", { outlet: "KLCC", fulfilment: "pickup" }, ctx());
-    expect(ok.outletChange).toMatchObject({ outletId: "klcc", fulfilment: "pickup", message: "Pickup at Demo Outlet – KLCC" });
+    expect(ok.outletChange).toMatchObject({ outletId: "klcc", fulfilment: "pickup", message: "Pickup at KLCC Outlet" });
     expect((await runTool("set_outlet", { outlet: "Atlantis", fulfilment: "pickup" }, ctx())).outletChange).toBeUndefined();
     const far = await runTool("set_outlet", { outlet: "cheras", fulfilment: "delivery", area: "Klang" }, ctx());
     expect(far.outletChange).toBeUndefined();

@@ -5,7 +5,9 @@ test.describe("ordering flow", () => {
   test("full order from menu to tracking", async ({ page }, testInfo) => {
     await page.clock.install();
     await page.goto("/");
-    await expect(page.getByTestId("demo-label")).toBeVisible();
+    await expect(page.getByTestId("site-name")).toHaveText("US Pizza Demo");
+    await expect(page.getByTestId("footer-demo-note")).toHaveText("Demo site with dummy data.");
+    await expect(page.locator("body")).not.toContainText(/fictional|not a real store|demo hours/i);
     await screenshot(page, testInfo, "menu");
 
     // Pizza with options: Large + Cheese-Stuffed = RM 39 + RM 5
@@ -49,7 +51,8 @@ test.describe("ordering flow", () => {
     await page.goto("/");
     await chooseOutlet(page, "delivery");
     await page.goto("/checkout");
-    await expect(page.getByTestId("checkout-outlet")).toContainText("Demo Outlet – Petaling Jaya");
+    await expect(page.getByTestId("checkout-outlet")).toContainText("Petaling Jaya Outlet");
+    await expect(page.getByText("No real payment is taken.", { exact: true })).toBeVisible();
     await page.getByLabel("Full name").fill("Siti Aminah");
     await page.getByLabel("Phone number").fill("012-345 6789");
     await page.getByLabel("Delivery address").fill("12 Jalan Demo, Petaling Jaya");
@@ -62,7 +65,7 @@ test.describe("ordering flow", () => {
     await expect(page.getByTestId("order-status")).toHaveText("Order received");
     await expect(page.getByTestId("order-total")).toHaveText("RM 98.00");
     await expect(page.getByTestId("cart-count")).toHaveText("0");
-    await expect(page.getByTestId("order-outlet")).toHaveText("From Demo Outlet – Petaling Jaya");
+    await expect(page.getByTestId("order-outlet")).toHaveText("From Petaling Jaya Outlet");
     await screenshot(page, testInfo, "order");
 
     // The status changes without a page refresh.
@@ -93,7 +96,7 @@ test.describe("ordering flow", () => {
   test("seeded orders show their fixed status", async ({ page }) => {
     await page.goto("/order/US-1002");
     await expect(page.getByTestId("order-status")).toHaveText("Out for delivery");
-    await expect(page.getByTestId("order-outlet")).toHaveText("From Demo Outlet – Bangsar");
+    await expect(page.getByTestId("order-outlet")).toHaveText("From Bangsar Outlet");
   });
 
   test("delivery minimum is enforced and pickup removes the address and fee", async ({ page }) => {

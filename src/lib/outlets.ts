@@ -41,9 +41,9 @@ export function nearestDeliveryOutlet(from: LatLng, radiusKm = DELIVERY_RADIUS_K
   return nearest && nearest.distanceKm <= radiusKm ? nearest : undefined;
 }
 
-/** Find a named area or outlet ("Bangsar", "klcc", "Demo Outlet – Cheras"). */
+/** Find a named area or outlet ("Bangsar", "klcc", "Cheras Outlet"). */
 export function findArea(name: string): { name: string; lat: number; lng: number } | undefined {
-  const q = name.toLowerCase().replace(/demo outlet\s*[–-]?\s*/, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const q = name.toLowerCase().replace(/demo outlet\s*[–-]?\s*/, "").replace(/\boutlet\b/g, " ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
   if (!q) return undefined;
   const exact = AREAS.find((a) => a.name.toLowerCase() === q);
   if (exact) return exact;
@@ -72,7 +72,7 @@ export function formatClock(minutes: number): string {
 }
 
 export function hoursLabel(outlet: Outlet): string {
-  return `${formatClock(outlet.hours.opensAt)} – ${formatClock(outlet.hours.closesAt)} daily (demo hours)`;
+  return `${formatClock(outlet.hours.opensAt)} – ${formatClock(outlet.hours.closesAt)} daily`;
 }
 
 // ---------- Estimates ----------

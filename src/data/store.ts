@@ -27,7 +27,7 @@ export const STORE = {
   },
   payment: {
     summary:
-      "Demo only: you choose 'Pay on delivery or pickup (demo)'. No real payment is taken and no card details are collected.",
+      "You choose 'Pay on delivery or pickup' at checkout. No real payment is taken and no card details are collected.",
   },
   refunds: {
     summary:
@@ -45,8 +45,8 @@ export const STORE = {
   contact: {
     email: "hello@example.com",
     // Deliberately fictional: 555 numbers are reserved for fiction.
-    phone: "+60 3-0000 5555 (fictional demo number)",
-    summary: "Email hello@example.com or call +60 3-0000 5555 (a fictional demo number).",
+    phone: "+60 3-0000 5555",
+    summary: "Email hello@example.com or call +60 3-0000 5555.",
   },
   allergens: {
     summary:

@@ -41,7 +41,7 @@ export const FRIENDLY: Record<ChatErrorCode, FriendlyError> = {
   daily_cap: {
     code: "daily_cap",
     message:
-      "The assistant has answered as many questions as this demo allows today. It will be back tomorrow. You can still browse the menu, order, and track orders as normal.",
+      "The assistant has answered as many questions as it can today. It will be back tomorrow. You can still browse the menu, order, and track orders as normal.",
     retryable: false,
   },
   unknown: { code: "unknown", message: "Sorry, something went wrong. Please try again.", retryable: true },

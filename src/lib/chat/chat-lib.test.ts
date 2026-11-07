@@ -155,7 +155,7 @@ describe("page awareness", () => {
     expect(pageContextText({ page: "order", orderId: "US-1002" })).toContain('"my order"');
     expect(pageContextText(undefined)).toBeUndefined();
     expect(buildSystemPrompt(new Date(), { page: "checkout" })).toMatch(/Where the customer is: the checkout page\. The customer has not chosen an outlet yet\.$/);
-    expect(buildSystemPrompt(new Date(), undefined, "klcc", true)).toMatch(/chosen outlet is Demo Outlet – KLCC \(id: klcc\)\. The customer has shared their location/);
+    expect(buildSystemPrompt(new Date(), undefined, "klcc", true)).toMatch(/chosen outlet is KLCC Outlet \(id: klcc\)\. The customer has shared their location/);
   });
 });
 

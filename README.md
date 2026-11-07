@@ -78,7 +78,7 @@ Every change is listed on the card. If even the smallest basket is over budget (
 ### What is real and what is dummy data
 
 - **Menu, prices, store policies, orders and outlets are all dummy data**, made up for this demo. Nothing is sent to a restaurant.
-- **Outlets.** I first planned to use US Pizza's real outlet list. Their terms of use (https://uspizza.my/term-of-use/) do not allow automated collection ("spider, crawl, or scrape") or copying any part of the service without permission, so the demo uses **six invented outlets placed in real Klang Valley areas**: Damansara Heights, Bangsar, Petaling Jaya, Subang Jaya, Cheras and KLCC. The coordinates are approximate area centres, so distances and "nearest outlet" behave realistically. The addresses say "not a real store", and the hours are labelled demo hours. A real version would use US Pizza's official outlet data or API, with their permission. For the real outlets, the site links to a Google Maps search instead of copying anything.
+- **Outlets.** I first planned to use US Pizza's real outlet list. Their terms of use (https://uspizza.my/term-of-use/) do not allow automated collection ("spider, crawl, or scrape") or copying any part of the service without permission, so the demo uses **six invented outlets placed in real Klang Valley areas**: Damansara Heights, Bangsar, Petaling Jaya, Subang Jaya, Cheras and KLCC. The coordinates are approximate area centres, so distances and "nearest outlet" behave realistically. On the site they appear as ordinary outlets (for example "Bangsar Outlet", with the area as the address and plausible hours), and the header ("US Pizza Demo"), footer ("Demo site with dummy data.") and checkout ("No real payment is taken.") make clear it is a demo. A real version would use US Pizza's official outlet data or API, with their permission. For the real outlets, the site links to a Google Maps search instead of copying anything.
 - The site sends `noindex` (a meta tag and an `X-Robots-Tag` header), so search engines don't list it.
 
 ### Your location
@@ -221,7 +221,7 @@ Safety rules in the system prompt and the code:
 - If a delivery cart is below the RM 20.00 minimum, the cart tools tell the assistant how much more is needed, and it mentions this whenever it gives the total or links to checkout. Pickup has no minimum, so pickup carts get no such note.
 - Allergen answers list allergens and mention cross-contact; they never promise an item is safe.
 - Halal questions get: this demo has no certification information, please check with the store.
-- The site shows a permanent demo label, so the assistant mentions the demo only when asked or when it matters (for example, "will this really be delivered?"). The evaluation fails any reply that adds the notice unprompted.
+- The header and footer always show that this is a demo site, so the assistant mentions the demo only when asked or when it matters (for example, "will this really be delivered?"). The evaluation fails any reply that adds the notice unprompted.
 - Web results, customer messages and cart contents are treated as untrusted data.
 - Replies are rendered as safe text. Raw HTML is never rendered, and links must be `https` (or one of the site's own pages, such as `/checkout`) and open in a new tab.
 

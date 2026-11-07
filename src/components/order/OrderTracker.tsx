@@ -61,11 +61,11 @@ function OrderDetails({ order, now, isNew }: { order: Order; now: Date; isNew: b
       <div>
         <p className="font-semibold text-brand">Order {order.id}</p>
         <h1 className="mt-1 text-3xl font-extrabold sm:text-4xl">
-          {isNew && firstName ? `Thanks, ${firstName}! Your demo order is in.` : `Order ${order.id}`}
+          {isNew && firstName ? `Thanks, ${firstName}! Your order is in.` : `Order ${order.id}`}
         </h1>
         <p className="mt-2 text-ink-soft">
           Placed {formatOrderTime(order.placedAt)} · {order.fulfilment === "delivery" ? "Delivery" : "Pickup"}
-          {isNew && " · This status updates every few seconds using sped-up demo timings."}
+          {isNew && " · This status updates automatically."}
         </p>
         {outlet && (
           <p className="mt-1 font-semibold" data-testid="order-outlet">
@@ -155,7 +155,7 @@ function OrderDetails({ order, now, isNew }: { order: Order; now: Date; isNew: b
             <dd className="tabular-nums">{order.deliveryFeeSen ? formatRM(order.deliveryFeeSen) : "Free"}</dd>
           </div>
           <div className="flex justify-between text-base font-bold">
-            <dt>Total (pay on {order.fulfilment === "delivery" ? "delivery" : "pickup"}, demo)</dt>
+            <dt>Total (pay on {order.fulfilment === "delivery" ? "delivery" : "pickup"})</dt>
             <dd className="tabular-nums" data-testid="order-total">
               {formatRM(order.totalSen)}
             </dd>
@@ -165,7 +165,7 @@ function OrderDetails({ order, now, isNew }: { order: Order; now: Date; isNew: b
           <p className="mt-4 text-sm text-ink-soft">
             {order.fulfilment === "delivery" && order.customer.address
               ? `Delivering to: ${order.customer.address}`
-              : "Pickup from the demo store."}
+              : `Pickup from ${outlet ? outlet.name : "the store"}.`}
           </p>
         )}
       </section>
@@ -187,7 +187,7 @@ function OrderNotFound({ id }: { id: string }) {
     <div className="rounded-card border border-line bg-white p-6 shadow-card" data-testid="order-not-found">
       <h1 className="text-2xl font-extrabold sm:text-3xl">We couldn&apos;t find that order</h1>
       <p className="mt-2 text-ink-soft">
-        There is no order with the ID <strong className="text-ink">{id}</strong> in this demo. Orders you place are
+        There is no order with the ID <strong className="text-ink">{id}</strong>. Orders you place are
         saved only in this browser, so they won&apos;t appear on another device.
       </p>
       <p className="mt-2 text-ink-soft">Order IDs look like US-2001. You can also try the sample orders US-1001, US-1002 or US-1003.</p>

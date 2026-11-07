@@ -8,7 +8,7 @@ export const SEEDED_ORDERS: Order[] = [
     id: "US-1001",
     placedAt: new Date("2026-11-05T12:15:00+08:00"),
     fulfilment: "delivery",
-    customer: { name: "Aisyah R.", phone: "012-000 1001", address: "12 Jalan Demo 1, Petaling Jaya" },
+    customer: { name: "Aisyah R.", phone: "012-000 1001", address: "12 Jalan Contoh 1, Petaling Jaya" },
     cart: [
       { lineId: "margherita:large:hand-tossed", itemId: "margherita", size: "large", crust: "hand-tossed", quantity: 1 },
       { lineId: "garlic-bread", itemId: "garlic-bread", quantity: 1 },

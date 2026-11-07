@@ -105,7 +105,7 @@ export function ChatWidget() {
               <h2 id="chat-title" className="font-display text-lg font-extrabold">
                 Pizza assistant
               </h2>
-              <p className="truncate text-xs text-ink-soft">AI can make mistakes · demo data only</p>
+              <p className="truncate text-xs text-ink-soft">AI can make mistakes</p>
             </div>
             <button
               type="button"
@@ -233,7 +233,7 @@ function Welcome({ onAsk }: { onAsk: (question: string) => void }) {
   return (
     <div className="space-y-3">
       <div className="rounded-2xl bg-white p-4 shadow-card">
-        <p className="font-display text-lg font-bold">Hi! I&apos;m the US Pizza Demo assistant. 🍕</p>
+        <p className="font-display text-lg font-bold">Hi! I&apos;m your ordering assistant. 🍕</p>
         <p className="mt-1 text-sm text-ink-soft">
           Ask me about the menu, allergens, delivery, your order, or anything else. I can add things to your cart,
           or plan a whole order for a group.

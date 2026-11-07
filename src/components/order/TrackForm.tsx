@@ -69,7 +69,7 @@ export function TrackForm() {
             Loading…
           </p>
         ) : orders.length === 0 ? (
-          <p className="mt-2 text-ink-soft">You haven&apos;t placed any demo orders yet.</p>
+          <p className="mt-2 text-ink-soft">You haven&apos;t placed any orders yet.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {orders.map((o) => (

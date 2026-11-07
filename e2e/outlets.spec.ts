@@ -25,7 +25,7 @@ test.describe("outlet selection", () => {
     const picker = page.getByTestId("outlet-picker");
     await picker.getByTestId("use-my-location").click();
     const result = picker.getByTestId("delivery-result");
-    await expect(result).toContainText("Demo Outlet – Bangsar");
+    await expect(result).toContainText("Bangsar Outlet");
     await expect(result).toContainText("0.0 km away");
     await expect(result).toContainText("(estimate)");
     await expect(picker.getByTestId("outlet-disclaimer")).toContainText("This demo does not take orders for them.");
@@ -57,7 +57,7 @@ test.describe("outlet selection", () => {
 
     await picker.getByTestId("area-search").fill("kla");
     await picker.getByRole("button", { name: "Klang", exact: true }).click();
-    await expect(picker.getByTestId("delivery-out-of-range")).toContainText("No demo outlet delivers to Klang");
+    await expect(picker.getByTestId("delivery-out-of-range")).toContainText("None of our outlets deliver to Klang");
     await picker.getByTestId("switch-to-pickup").click();
 
     // Pickup list, nearest to Klang first.
@@ -65,8 +65,8 @@ test.describe("outlet selection", () => {
     await expect(first).toHaveAttribute("data-outlet-id", "subang-jaya");
     await expect(first).toContainText("km away");
     await expect(first).toContainText(/Open now|Closed now/);
-    await expect(first).toContainText("demo hours");
-    await first.getByRole("button", { name: "Pick up at Demo Outlet – Subang Jaya" }).click();
+    await expect(first).toContainText("daily");
+    await first.getByRole("button", { name: "Pick up at Subang Jaya Outlet" }).click();
     await expect(page.getByTestId("outlet-chip")).toContainText("Pickup at: Subang Jaya");
   });
 
@@ -77,18 +77,18 @@ test.describe("outlet selection", () => {
     await picker.getByTestId("outlet-search").fill("klcc");
     await expect(picker.getByTestId("pickup-outlet")).toHaveCount(1);
     await screenshot(page, testInfo, "outlet-pickup");
-    await picker.getByRole("button", { name: "Pick up at Demo Outlet – KLCC" }).click();
+    await picker.getByRole("button", { name: "Pick up at KLCC Outlet" }).click();
     await expect(page.getByTestId("outlet-chip")).toContainText("Pickup at: KLCC");
 
     await addSimple(page, "cola");
     await page.goto("/checkout");
-    await expect(page.getByTestId("checkout-outlet")).toContainText("Demo Outlet – KLCC");
+    await expect(page.getByTestId("checkout-outlet")).toContainText("KLCC Outlet");
     await expect(page.getByTestId("checkout-outlet")).toContainText("Ready in about 15–20 min (estimate)");
     await page.getByLabel("Full name").fill("Ali");
     await page.getByLabel("Phone number").fill("0123456789");
     await page.getByTestId("place-order").click();
     await expect(page).toHaveURL(/\/order\/US-2001$/);
-    await expect(page.getByTestId("order-outlet")).toHaveText("Pickup at Demo Outlet – KLCC");
+    await expect(page.getByTestId("order-outlet")).toHaveText("Pickup at KLCC Outlet");
   });
 
   test("the chatbot finds outlets and changes outlet (mock mode)", async ({ page }) => {
@@ -99,11 +99,11 @@ test.describe("outlet selection", () => {
     await page.getByTestId("chat-send").click();
     // No location was shared, so none is sent.
     expect((await sent).postDataJSON().location).toBeUndefined();
-    await expect(page.getByTestId("chat-assistant-message").last()).toContainText("The nearest outlet is Demo Outlet – Bangsar, 0.0 km away");
+    await expect(page.getByTestId("chat-assistant-message").last()).toContainText("The nearest outlet is Bangsar Outlet, 0.0 km away");
 
     await page.getByTestId("chat-input").fill("Switch to pickup at the KLCC outlet");
     await page.getByTestId("chat-send").click();
-    await expect(page.getByTestId("chat-cart-note").last()).toContainText("Pickup at Demo Outlet – KLCC");
+    await expect(page.getByTestId("chat-cart-note").last()).toContainText("Pickup at KLCC Outlet");
     await page.getByTestId("chat-close").click();
     await expect(page.getByTestId("outlet-chip")).toContainText("Pickup at: KLCC");
   });
@@ -145,7 +145,7 @@ test.describe("outlet map", () => {
     const picker = page.getByTestId("outlet-picker");
     await picker.getByTestId("toggle-map").click();
     await expect(picker.getByTestId("outlet-map")).toBeVisible();
-    await picker.getByRole("button", { name: "Pick up at Demo Outlet – Cheras" }).click();
+    await picker.getByRole("button", { name: "Pick up at Cheras Outlet" }).click();
     await expect(page.getByTestId("outlet-chip")).toContainText("Pickup at: Cheras");
   });
 });

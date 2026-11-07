@@ -6,10 +6,8 @@ export function SiteFooter() {
     <footer className="mt-auto border-t border-line bg-ink text-white/85">
       <div className="mx-auto grid max-w-6xl gap-6 px-4 pt-8 pb-28 text-sm sm:grid-cols-3 sm:px-6">
         <div>
-          <p className="font-display text-lg font-extrabold text-white">US Pizza Demo</p>
-          <p className="mt-2">
-            <strong className="text-gold">Demo with dummy data.</strong> {STORE.demoNotice}
-          </p>
+          <p className="font-display text-lg font-extrabold text-white">US Pizza</p>
+          <p className="mt-2" data-testid="footer-demo-note">Demo site with dummy data.</p>
         </div>
         <div>
           <p className="font-semibold text-white">Opening hours</p>
@@ -21,7 +19,7 @@ export function SiteFooter() {
           </p>
         </div>
         <div>
-          <p className="font-semibold text-white">Contact (demo)</p>
+          <p className="font-semibold text-white">Contact</p>
           <p className="mt-1">{STORE.contact.email}</p>
           <p>{STORE.contact.phone}</p>
           <p className="mt-3">

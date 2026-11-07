@@ -14,7 +14,7 @@ export default function MenuPage() {
         </div>
         <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
           <p className="mb-2 inline-flex rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
-            Hot, fresh and entirely fictional
+            Hot, fresh and made to order
           </p>
           <h1 className="max-w-2xl text-4xl font-extrabold leading-[1.05] sm:text-5xl">
             Pizza night, sorted in a few taps.

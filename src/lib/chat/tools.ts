@@ -591,7 +591,7 @@ function addPlanToCartTool(ctx: ToolContext): ToolOutcome {
 function resolveOutlet(ref: string): Outlet | undefined {
   const byId = findOutlet(ref.trim().toLowerCase().replace(/\s+/g, "-"));
   if (byId) return byId;
-  const q = ref.toLowerCase().replace(/demo outlet\s*[–-]?\s*/, "").trim();
+  const q = ref.toLowerCase().replace(/demo outlet\s*[–-]?\s*/, "").replace(/\s*\boutlet\b\s*/g, " ").trim();
   return OUTLETS.find((o) => o.area.toLowerCase() === q || o.name.toLowerCase() === ref.toLowerCase().trim());
 }
 

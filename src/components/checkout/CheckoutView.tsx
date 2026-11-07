@@ -178,8 +178,8 @@ export function CheckoutView() {
               <label className="flex min-h-12 items-center gap-3 rounded-xl border-2 border-brand bg-brand-tint px-3 py-2">
                 <input type="radio" name="payment" checked readOnly className="size-5 accent-brand" />
                 <span>
-                  <span className="block font-semibold">Pay on delivery or pickup (demo)</span>
-                  <span className="block text-sm text-ink-soft">No real payment is taken. This is a demo.</span>
+                  <span className="block font-semibold">Pay on delivery or pickup</span>
+                  <span className="block text-sm text-ink-soft">No real payment is taken.</span>
                 </span>
               </label>
             </fieldset>
@@ -196,12 +196,9 @@ export function CheckoutView() {
             data-testid="place-order"
             className="flex min-h-14 w-full items-center justify-between rounded-full bg-brand px-6 text-lg font-bold text-white hover:bg-brand-dark"
           >
-            <span>Place demo order</span>
+            <span>Place order</span>
             <span className="tabular-nums">{formatRM(summary.totalSen)}</span>
           </button>
-          <p className="text-center text-sm text-ink-soft">
-            This places a pretend order stored only in your browser. Nothing is sent to a restaurant.
-          </p>
         </form>
       </div>
     </PageShell>
