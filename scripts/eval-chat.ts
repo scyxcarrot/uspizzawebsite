@@ -352,7 +352,7 @@ const CASES: Case[] = [
         [!/\b(Mid Valley|Bangsar South|Telawi|Bangsar Shopping Centre)\b.*outlet/i.test(r.text), "mentions an outlet that does not exist"],
         [r.cartEvents.length === 0, "cart changed"],
       );
-      return c.pass ? ok("check it presents the outlet as a demo outlet and gives no real address", true) : c;
+      return c.pass ? ok("check it gives no real store address and reports open or closed from the tool", true) : c;
     },
   },
   {
