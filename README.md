@@ -87,6 +87,46 @@ Every change is listed on the card. If even the smallest basket is over budget (
 - The coordinates stay in the open browser tab's memory. They are not saved in browser storage; only the chosen outlet, distance and area name are saved.
 - While shared, they are sent, rounded to about 100 m, with chat requests so that `find_outlets` can work out distances. The server uses them for that request only. It never stores or logs them, and never passes them to Gemini: the AI only sees the resulting outlet list and distances.
 
+### Menu and outlet settings in a database, with an admin page
+
+**What it does.** Menu items (prices, descriptions, options, sold out) and outlet settings (hours, temporary closures) are stored in a **Neon Postgres** database, connected through Vercel Storage on the free plan. A simple admin page at **`/admin`** edits them:
+
+- change an item's price (Regular and Large for pizzas) and description
+- mark an item sold out, or back in stock
+- change an outlet's daily hours, or close it temporarily (1 hour to 2 days, with an optional reason), and reopen it
+- see the latest changes (an audit log), and **Reset to original data**
+
+**What a change does on the site.** Changes appear on the menu within about 5 seconds, without a reload, and in the very next chatbot answer.
+
+- A sold-out item shows "Sold out" on the menu, and its pop-up has no add button. The chatbot says it's sold out and suggests something else. `add_to_cart`, the group order planner and "Add all to cart" all refuse it.
+- If a sold-out item is already in a cart, the cart marks it, and checkout asks the customer to remove it.
+- A closed outlet (outside its hours, or temporarily closed) shows "Closed now". `find_outlets` explains why, and checkout won't place an order with it.
+
+**How it fits together.**
+
+- **One live catalogue.** The menu and outlets are still read through `MENU` / `findMenuItem` and `OUTLETS` / `findOutlet`. `src/lib/catalog.ts` replaces their contents with the database version. The UI, pricing, the planner, checkout and the chatbot tools therefore all read the same data, and none of them talks to the database directly.
+- **Prices.** Prices stay integers in sen, and every total is still calculated by code.
+- **Reading and caching.** The server reads the database at most once every 2 seconds per instance (`src/lib/db/catalog-server.ts`). The page receives the current data when it loads, then checks `/api/catalog` every 5 seconds.
+- **Tables.** `menu_items` holds the prices in sen, sold out and the item data. `outlets` holds the hours, closure end time, reason and outlet data. `audit_log` holds the change history. The tables are created and seeded from `src/data` on first use.
+- **Validation.** Every row is checked with Zod when read, so a bad row can't reach the site.
+- **If the database is unavailable** (down, slow for more than 4 seconds, or holding invalid data), the site uses the original `src/data` files and logs a warning (at most one a minute), so it never breaks. The admin page then says changes can't be saved. With no `DATABASE_URL` at all, the site simply uses the original data.
+
+**Security.**
+
+- **Password.** One password, from the `ADMIN_PASSWORD` environment variable. It is checked only on the server, with a timing-safe comparison, and never sent to the browser.
+- **Session cookie.** Signing in sets an httpOnly, SameSite=Strict, Secure cookie. It holds an expiry time (8 hours) and an HMAC signature, not the password. Changing the password signs everyone out.
+- **Rate limit.** After 5 wrong passwords from one IP address, sign-in is blocked for 15 minutes (per server instance).
+- **Change requests.** Every change goes to a server route that checks the session and that the request comes from the site itself (Origin header), then validates the change with Zod: unknown fields are rejected, prices must be RM 0.50 to RM 500 with at most two decimals, and Large can't cost less than Regular.
+- **Search engines.** `/admin` has its own `noindex` as well as the site-wide one.
+
+**Tests never touch the real database.** Browser tests run with `DATA_STORE=memory`, an in-process copy of the data, and a test-only password. The admin tests run after all the others, one screen size at a time, and reset the data when done.
+
+**Trade-offs.**
+
+- **Single admin login.** There is one password, not user accounts, which is enough for a demo. A real shop would use proper staff accounts.
+- **Shared database.** Preview and production deployments share one database, so a change made on a preview also shows on production.
+- **Rate limit and cache per instance.** Both live in server memory, like the daily AI cap.
+
 ## 3. Setup and tests
 
 Requirements: Node.js 22 or newer.
@@ -107,6 +147,8 @@ Get a key from [Google AI Studio](https://aistudio.google.com/apikey). Without a
 | `GEMINI_SEARCH_MODEL` | Model for the separate web search request. Defaults to `gemini-3.6-flash` (see "Web search status"). |
 | `GEMINI_DAILY_REQUEST_CAP` | Optional. Most Gemini requests the server will make per day. Default 300. |
 | `AI_MOCK` | `true` gives scripted replies for browser tests. Refused when `VERCEL_ENV=production`. |
+| `DATABASE_URL` | Neon Postgres connection, added by Vercel Storage. Locally, `vercel env pull` puts it in a git-ignored env file. Empty = the original `src/data` files only. |
+| `ADMIN_PASSWORD` | Password for `/admin` (at least 8 characters). Server only. Without it, `/admin` says it isn't set up. |
 
 **Commands**
 
@@ -118,6 +160,7 @@ Get a key from [Google AI Studio](https://aistudio.google.com/apikey). Without a
 | `npm run test:e2e` | Browser tests (Playwright) at 360×800, 390×844, 768×1024 and 1440×900. Builds the app and runs it in mock mode. First run: `npx playwright install chromium`. Screenshots go to `screenshots/`. |
 | `npm run eval:chat` | Sends the 25 acceptance questions (the original 20, plus the group order planner, an impossible plan, page awareness, the nearest outlet, and changing outlet) to the **real** AI one at a time and prints a PASS / FAIL / REVIEW table. Start the app with a real key first (`npm run dev`). Options: `EVAL_BASE_URL`, `EVAL_DELAY_MS`, `EVAL_ONLY=4,12`. Replies are saved to `eval-results/` (not committed); the runs reported below are kept in `docs/eval-results/`. |
 | `node scripts/generate-menu-images.mjs` | Regenerates the menu illustrations |
+| `npx tsx --env-file=.env.development.local scripts/db-check.ts` | Checks the database connection: creates and seeds the tables if needed, and prints item, outlet and audit counts (no connection details) |
 
 ### Model choice (checked 6 November 2026)
 
@@ -229,7 +272,7 @@ Safety rules in the system prompt and the code:
 
 **Normal code for facts, AI for language.** Prices, totals and order status are business rules that must be correct every time and easy to test. The AI is good at understanding messy questions ("two big pepperonis pls") and writing friendly answers. Splitting the work this way means a wrong AI answer can't charge a wrong price, and every rule has a unit test.
 
-**Browser storage instead of a database.** The brief asks for dummy data and a demo. `localStorage` means no accounts, no server costs and nothing to secure. The trade-off: orders exist only in the browser that placed them. The server never trusts this data. It re-checks every cart line and recalculates every price.
+**Browser storage for carts and orders.** (The menu and outlet settings are in the database; see "Menu and outlet settings in a database".) The brief asks for dummy data and a demo. `localStorage` means no accounts, no server costs and nothing to secure. The trade-off: orders exist only in the browser that placed them. The server never trusts this data. It re-checks every cart line and recalculates every price.
 
 **Why Gemini.** It has a free tier, fast Flash models, function calling with streaming, and Google Search grounding from the same SDK. That covers everything the brief needs with one provider.
 
@@ -281,8 +324,8 @@ Run on 6 and 7 November 2026 on Windows 11, Node 22.18. The raw replies for each
 |---|---|
 | `npm run lint` | Passed, no warnings |
 | `npm run typecheck` | Passed |
-| `npm test` (Vitest) | **233 / 233 passed.** Covers outlets (distance, nearest outlet, the delivery radius and its edge, open or closed including after midnight, estimates, `find_outlets`, `set_outlet`, location and outlet validation), the group order planner (portion rule, budgets never exceeded, exclusions and dietary needs never relaxed, impossible requests, totals matching the pricing functions, a plan never added twice), chat cards and their validation, page context validation, pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, the chatbot's delivery-minimum note (and none for pickup), checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
-| `npm run test:e2e` (Playwright) | **116 / 116 passed** (29 tests at each of the 4 sizes): outlet selection (the map with outlets, pin, radius and attribution, and the picker still working when tiles fail; first-visit prompt that doesn't block the menu, a mocked shared location, a denied location falling back to an area, out of range offering pickup, pickup search, the outlet on checkout and the tracker, coordinates never saved, the chatbot finding and changing outlets, noindex), the group order planner (plan card, nothing added until "Add all to cart", adding with no AI request, saying yes, an impossible budget), item, cart and order cards, page awareness ("Is this spicy?" and "Add this" for the open item), full order from menu to tracking, chat adding to the cart (mock mode), no sideways scrolling, chat button not overlapping controls, cart and chat surviving a refresh, resizing, keyboard use, and failure messages (missing key, rate limit, network failure) with ordering still working |
+| `npm test` (Vitest) | **258 / 258 passed.** Covers the database-backed catalogue (applying it everywhere, rejecting invalid data, falling back to the original data with a warning when the database fails or holds bad data, caching, reset), sold-out items (refused by the cart, the chatbot tools and the planner, kept and marked in a saved cart, blocking checkout), temporary closures and closed hours blocking checkout, admin validation (prices, descriptions, hours, closures, unknown fields), admin sign-in (password check, signed and expiring sessions, cookie flags, rate limiting, cross-site requests refused) and the admin change route, outlets (distance, nearest outlet, the delivery radius and its edge, open or closed including after midnight, estimates, `find_outlets`, `set_outlet`, location and outlet validation), the group order planner (portion rule, budgets never exceeded, exclusions and dietary needs never relaxed, impossible requests, totals matching the pricing functions, a plan never added twice), chat cards and their validation, page context validation, pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, the chatbot's delivery-minimum note (and none for pickup), checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
+| `npm run test:e2e` (Playwright) | **124 / 124 passed**: 29 tests at each of the 4 sizes, plus 4 admin tests at phone (390) and desktop (1440) sizes. The admin tests cover noindex, a failed sign-in, signing in (httpOnly cookie, no sideways scrolling), marking an item sold out (an open menu tab updating within seconds without a reload, the pop-up with no add button, the cart line marked, checkout blocked, and the chatbot saying it's sold out and refusing to add it), a price change appearing on the menu, an invalid price refused, a temporary closure showing "Closed now" and blocking checkout, and Reset to original data. They run with an in-memory store, never the real database. Also covered: outlet selection (the map with outlets, pin, radius and attribution, and the picker still working when tiles fail; first-visit prompt that doesn't block the menu, a mocked shared location, a denied location falling back to an area, out of range offering pickup, pickup search, the outlet on checkout and the tracker, coordinates never saved, the chatbot finding and changing outlets, noindex), the group order planner (plan card, nothing added until "Add all to cart", adding with no AI request, saying yes, an impossible budget), item, cart and order cards, page awareness ("Is this spicy?" and "Add this" for the open item), full order from menu to tracking, chat adding to the cart (mock mode), no sideways scrolling, chat button not overlapping controls, cart and chat surviving a refresh, resizing, keyboard use, and failure messages (missing key, rate limit, network failure) with ordering still working |
 | Function calling and streaming | Confirmed live on `gemini-3.5-flash-lite`: the model called `get_item` and the reply arrived in several streamed chunks |
 | Invalid API key | Checked against the real Gemini API with a fake key: the browser gets the friendly message, the raw error stays in the server log |
 | Daily cap | Checked live with the cap set to 1: the turn stopped after one Gemini call with the friendly message, and the next request was refused (HTTP 429) without calling Gemini |
