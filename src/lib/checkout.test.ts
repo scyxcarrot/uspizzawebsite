@@ -8,6 +8,7 @@ const valid: CheckoutForm = {
   name: "Siti Aminah",
   phone: "012-345 6789",
   address: "12 Jalan Demo, Petaling Jaya",
+  outletId: "petaling-jaya",
 };
 
 describe("validateCheckout", () => {
@@ -51,5 +52,14 @@ describe("validateCheckout", () => {
 
   it("blocks an empty cart", () => {
     expect(validateCheckout(valid, priceCart([], "delivery")).cart).toMatch(/empty/);
+  });
+});
+
+describe("validateCheckout: outlet", () => {
+  it("needs a real outlet", () => {
+    expect(validateCheckout({ ...valid, outletId: null }, bigCart).outlet).toMatch(/choose the outlet/);
+    expect(validateCheckout({ ...valid, outletId: "atlantis" }, bigCart).outlet).toBeDefined();
+    expect(validateCheckout({ ...valid, fulfilment: "pickup", outletId: undefined }, bigCart).outlet).toMatch(/pick up from/);
+    expect(validateCheckout(valid, bigCart).outlet).toBeUndefined();
   });
 });

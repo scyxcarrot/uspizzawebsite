@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { addToCart, type CartLine } from "@/lib/cart";
 import { resolveItem, runTool, TOOL_DECLARATIONS, TOOL_INPUT_SCHEMAS, type ToolContext } from "@/lib/chat/tools";
+import { OUTLETS } from "@/data/outlets";
 import { formatRM } from "@/lib/money";
 import { sanitizeBrowserOrders } from "@/lib/orders";
 import { planOrder } from "@/lib/planner";
@@ -22,7 +23,7 @@ const names = (r: Record<string, unknown>) => (r.items as Item[]).map((i) => i.n
 describe("tool declarations", () => {
   it("has a validation schema for every declared tool", () => {
     for (const t of TOOL_DECLARATIONS) expect(TOOL_INPUT_SCHEMAS[t.name]).toBeDefined();
-    expect(TOOL_DECLARATIONS).toHaveLength(10);
+    expect(TOOL_DECLARATIONS).toHaveLength(12);
   });
 });
 
@@ -302,5 +303,46 @@ describe("cards built from tool results", () => {
     const start = addToCart([], { itemId: "cola", quantity: 1 });
     const cart = start.ok ? start.cart : [];
     expect((await runTool("get_cart", {}, ctx({ cart, fulfilment: "pickup" }))).card).toEqual({ kind: "cart", fulfilment: "pickup", lines: cart });
+  });
+});
+
+describe("find_outlets and set_outlet", () => {
+  const bangsar = { lat: 3.1307, lng: 101.671 };
+
+  it("lists only demo outlets, nearest first, from a named area", async () => {
+    const out = await runTool("find_outlets", { area: "Mid Valley" }, ctx());
+    const list = out.result.outlets as { id: string; distance: string; delivers_here: boolean; open_now: boolean; hours: string }[];
+    expect(list.map((o) => o.id).sort()).toEqual(OUTLETS.map((o) => o.id).sort());
+    expect(list[0]).toMatchObject({ id: "bangsar", delivers_here: true });
+    expect(list[0]!.hours).toMatch(/demo hours/);
+    expect(typeof list[0]!.open_now).toBe("boolean");
+  });
+
+  it("uses the shared location when no area is named", async () => {
+    const out = await runTool("find_outlets", {}, ctx({ location: bangsar }));
+    expect(out.result.origin).toBe("the customer's shared location");
+    expect((out.result.outlets as { id: string; distance: string }[])[0]).toMatchObject({ id: "bangsar", distance: "0.0 km" });
+  });
+
+  it("says when no area or location is known, and never guesses", async () => {
+    const out = await runTool("find_outlets", {}, ctx());
+    expect(out.result.origin).toMatch(/unknown/);
+    expect((out.result.outlets as { distance?: string }[]).every((o) => o.distance === undefined)).toBe(true);
+    const unknown = await runTool("find_outlets", { area: "Atlantis" }, ctx());
+    expect(unknown.result).toMatchObject({ found_area: false });
+  });
+
+  it("reports outlets outside the delivery radius", async () => {
+    const out = await runTool("find_outlets", { area: "Klang" }, ctx());
+    expect((out.result.outlets as { delivers_here: boolean }[]).every((o) => o.delivers_here === false)).toBe(true);
+  });
+
+  it("changes outlet only to a real one, and checks the delivery radius", async () => {
+    const ok = await runTool("set_outlet", { outlet: "KLCC", fulfilment: "pickup" }, ctx());
+    expect(ok.outletChange).toMatchObject({ outletId: "klcc", fulfilment: "pickup", message: "Pickup at Demo Outlet – KLCC" });
+    expect((await runTool("set_outlet", { outlet: "Atlantis", fulfilment: "pickup" }, ctx())).outletChange).toBeUndefined();
+    const far = await runTool("set_outlet", { outlet: "cheras", fulfilment: "delivery", area: "Klang" }, ctx());
+    expect(far.outletChange).toBeUndefined();
+    expect(String(far.result.error)).toMatch(/outside its 8 km demo delivery radius/);
   });
 });

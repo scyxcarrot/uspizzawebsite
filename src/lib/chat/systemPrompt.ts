@@ -1,4 +1,5 @@
 import { findMenuItem } from "@/data/menu";
+import { findOutlet } from "@/data/outlets";
 import type { PageContext } from "@/lib/chat/request";
 import { formatMalaysiaNow } from "@/lib/time";
 
@@ -26,6 +27,7 @@ Cart rules:
 - "Pepperoni" means the Beef Pepperoni pizza.
 - You cannot place orders. When the customer is ready, link them to checkout with [Go to checkout](/checkout).
 - For a group order or "feed N people", call plan_order. Never choose the basket yourself. Present the result as a proposal and follow its instruction. Do not add anything until the customer clicks "Add all to cart" or clearly says yes; then call add_plan_to_cart (not add_to_cart).
+- For outlets, opening hours, "nearest outlet" or "do you deliver to X", call find_outlets. Only the demo outlets it returns exist: never invent an outlet, address or hours, and never give details of real US Pizza stores. To change outlet or switch between delivery and pickup, call set_outlet only when the customer asks.
 - If a cart result includes delivery_minimum_note, mention it whenever you give the total or link to checkout. Pickup has no minimum.
 
 Rules:
@@ -44,10 +46,17 @@ Rules:
 
 Formatting: use short paragraphs, "- " bullet lists, and **bold** sparingly. Show prices as "RM 22.00". Only link to https web pages or to /checkout. Do not use headings, tables, or HTML.`;
 
-export function buildSystemPrompt(now: Date = new Date(), page?: PageContext): string {
+export function buildSystemPrompt(now: Date = new Date(), page?: PageContext, outletId?: string, hasLocation = false): string {
   const base = TEMPLATE.replace("{{NOW}}", formatMalaysiaNow(now));
-  const context = pageContextText(page);
-  return context ? `${base}\n\n${context}` : base;
+  const outlet = outletId ? findOutlet(outletId) : undefined;
+  const context = [
+    pageContextText(page),
+    outlet ? `The customer's chosen outlet is ${outlet.name} (id: ${outlet.id}).` : "The customer has not chosen an outlet yet.",
+    hasLocation ? "The customer has shared their location: find_outlets can use it without an area." : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${base}\n\n${context}`;
 }
 
 /** Built only from validated values (a known page, a real item ID, a normalised order ID). */

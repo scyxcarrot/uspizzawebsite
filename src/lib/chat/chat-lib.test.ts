@@ -3,7 +3,7 @@ import { getAiConfig, isMockAllowed, LIMITS } from "@/lib/chat/config";
 import { classifyError } from "@/lib/chat/errors";
 import { parseInline, parseMarkdown, safeHref } from "@/lib/chat/markdown";
 import { clientIp, createRateLimiter } from "@/lib/chat/rateLimit";
-import { parseChatRequest, parsePageContext } from "@/lib/chat/request";
+import { parseChatRequest, parseLocation, parsePageContext } from "@/lib/chat/request";
 import { buildSystemPrompt, pageContextText } from "@/lib/chat/systemPrompt";
 
 describe("markdown safety", () => {
@@ -154,6 +154,25 @@ describe("page awareness", () => {
     expect(text).toMatch(/If they say "this"/);
     expect(pageContextText({ page: "order", orderId: "US-1002" })).toContain('"my order"');
     expect(pageContextText(undefined)).toBeUndefined();
-    expect(buildSystemPrompt(new Date(), { page: "checkout" })).toMatch(/Where the customer is: the checkout page\.$/);
+    expect(buildSystemPrompt(new Date(), { page: "checkout" })).toMatch(/Where the customer is: the checkout page\. The customer has not chosen an outlet yet\.$/);
+    expect(buildSystemPrompt(new Date(), undefined, "klcc", true)).toMatch(/chosen outlet is Demo Outlet – KLCC \(id: klcc\)\. The customer has shared their location/);
+  });
+});
+
+describe("shared location in chat requests", () => {
+  it("keeps a real Malaysian point, rounded to about 100 m", () => {
+    expect(parseLocation({ lat: 3.130712, lng: 101.671049 })).toEqual({ lat: 3.131, lng: 101.671 });
+  });
+  it("drops anything else", () => {
+    expect(parseLocation({ lat: 51.5, lng: -0.12 })).toBeUndefined();
+    expect(parseLocation({ lat: "3.1", lng: 101 })).toBeUndefined();
+    expect(parseLocation(undefined)).toBeUndefined();
+  });
+  it("keeps only a real outlet id", () => {
+    const r = parseChatRequest({ messages: [{ role: "user", text: "hi" }], outletId: "klcc", location: { lat: 3.1, lng: 101.6 } });
+    expect(r.ok && r.data.outletId).toBe("klcc");
+    expect(r.ok && r.data.location).toEqual({ lat: 3.1, lng: 101.6 });
+    const bad = parseChatRequest({ messages: [{ role: "user", text: "hi" }], outletId: "<script>" });
+    expect(bad.ok && bad.data.outletId).toBeUndefined();
   });
 });

@@ -1,6 +1,7 @@
 // Checkout form validation. Shared by the checkout page and its tests.
 
 import { z } from "zod";
+import { findOutlet } from "@/data/outlets";
 import { formatRM } from "@/lib/money";
 import type { CartSummary, Fulfilment } from "@/lib/pricing";
 
@@ -9,9 +10,11 @@ export type CheckoutForm = {
   name: string;
   phone: string;
   address: string;
+  /** The chosen demo outlet. */
+  outletId?: string | null;
 };
 
-export type CheckoutErrors = Partial<Record<"name" | "phone" | "address" | "cart", string>>;
+export type CheckoutErrors = Partial<Record<"name" | "phone" | "address" | "outlet" | "cart", string>>;
 
 // Malaysian numbers: 01x mobile or 0x landline, optionally written with +60 / 60.
 const PHONE_PATTERN = /^(?:\+?60|0)\d{8,10}$/;
@@ -48,6 +51,10 @@ export function validateCheckout(form: CheckoutForm, cart: CartSummary): Checkou
   if (form.fulfilment === "delivery") {
     const address = addressSchema.safeParse(form.address);
     if (!address.success) errors.address = address.error.issues[0]?.message;
+  }
+
+  if (!form.outletId || !findOutlet(form.outletId)) {
+    errors.outlet = form.fulfilment === "pickup" ? "Please choose an outlet to pick up from." : "Please choose the outlet to deliver from.";
   }
 
   if (cart.lines.length === 0) {

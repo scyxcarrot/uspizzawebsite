@@ -5,7 +5,9 @@
 import { z } from "zod";
 import { findMenuItem } from "@/data/menu";
 import { sanitizeCart, type CartLine } from "@/lib/cart";
+import { findOutlet } from "@/data/outlets";
 import { normaliseOrderId, sanitizeBrowserOrders, type Order } from "@/lib/orders";
+import { isPlausibleMalaysiaPoint, type LatLng } from "@/lib/outlets";
 import type { Fulfilment } from "@/lib/pricing";
 import { LIMITS } from "@/lib/chat/config";
 
@@ -31,7 +33,20 @@ export const chatRequestSchema = z.object({
   pendingPlan: z.unknown().optional(),
   /** The page the customer is on and the item they have open. Untrusted: checked below. */
   page: z.unknown().optional(),
+  /** Only while the customer has shared it this visit. Used by find_outlets; never stored or logged. */
+  location: z.unknown().optional(),
+  /** The outlet currently chosen in the browser. */
+  outletId: z.unknown().optional(),
 });
+
+const locationSchema = z.object({ lat: z.number(), lng: z.number() });
+
+/** Keep a shared location only if it is a real point in Malaysia, rounded to about 100 m. */
+export function parseLocation(raw: unknown): LatLng | undefined {
+  const parsed = locationSchema.safeParse(raw);
+  if (!parsed.success || !isPlausibleMalaysiaPoint(parsed.data)) return undefined;
+  return { lat: Math.round(parsed.data.lat * 1000) / 1000, lng: Math.round(parsed.data.lng * 1000) / 1000 };
+}
 
 /** Where the customer is. Only known pages and real menu items get through. */
 export type PageContext = {
@@ -76,6 +91,8 @@ export type ChatRequest = {
   fulfilment: Fulfilment;
   pendingPlan: CartLine[];
   page?: PageContext;
+  location?: LatLng;
+  outletId?: string;
 };
 
 export type ParseResult = { ok: true; data: ChatRequest } | { ok: false; error: string };
@@ -97,6 +114,8 @@ export function parseChatRequest(body: unknown): ParseResult {
       fulfilment: parsed.data.fulfilment ?? "delivery",
       pendingPlan: sanitizeCart(parsed.data.pendingPlan),
       page: parsePageContext(parsed.data.page),
+      location: parseLocation(parsed.data.location),
+      outletId: typeof parsed.data.outletId === "string" && findOutlet(parsed.data.outletId) ? parsed.data.outletId : undefined,
     },
   };
 }

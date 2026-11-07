@@ -52,3 +52,18 @@ export function overlaps(
 ) {
   return a.x < b.x + b.width - 1 && b.x < a.x + a.width - 1 && a.y < b.y + b.height - 1 && b.y < a.y + a.height - 1;
 }
+
+/** Choose a demo outlet from the bar under the header (needs no outlet chosen yet). */
+export async function chooseOutlet(page: Page, mode: "delivery" | "pickup" = "delivery") {
+  await page.getByTestId(`outlet-start-${mode}`).click();
+  const picker = page.getByTestId("outlet-picker");
+  await expect(picker).toBeVisible();
+  if (mode === "delivery") {
+    await picker.getByRole("button", { name: "Petaling Jaya", exact: true }).click();
+    await picker.getByTestId("choose-delivery-outlet").click();
+  } else {
+    await picker.getByRole("button", { name: "Pick up at Demo Outlet – Petaling Jaya" }).click();
+  }
+  await expect(picker).toBeHidden();
+  await expect(page.getByTestId("outlet-chip")).toContainText("Petaling Jaya");
+}

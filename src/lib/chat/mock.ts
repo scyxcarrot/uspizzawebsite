@@ -4,6 +4,7 @@
 // Mock mode is refused in production (see isMockAllowed in config.ts).
 
 import { MENU } from "@/data/menu";
+import { AREAS, OUTLETS } from "@/data/outlets";
 import type { ChatCard } from "@/lib/chat/cards";
 import { applyOutcome, finalCards, type Emit, type TurnCards } from "@/lib/chat/engine";
 import type { ChatRequest } from "@/lib/chat/request";
@@ -29,6 +30,8 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
       sources: [{ title: "Example source", url: "https://example.com/" }],
     }),
     pendingPlan: request.pendingPlan,
+    location: request.location,
+    outletId: request.outletId,
   };
   const turn: TurnCards = { cards: [] as ChatCard[], cartChanged: false };
   /** Run a real tool, apply its cart change and keep its card, like the live engine. */
@@ -72,6 +75,36 @@ export async function runMockTurn(request: ChatRequest, emit: Emit): Promise<voi
   if (/^(yes|yes please|yep|ok|okay|sure|add (it )?all|add the plan)\b/.test(text.trim())) {
     const outcome = await tool("add_plan_to_cart", {});
     streamText(emit, outcome.cart ? `(Mock) Done! ${outcome.cartMessage}. [Go to checkout](/checkout)` : `(Mock) ${String(outcome.result.error)}`);
+    finish();
+    return;
+  }
+
+  // Outlets: "nearest outlet", "outlets near Bangsar", "switch to pickup at KLCC"
+  if (/\b(outlet|outlets|store|branch|nearest|near me)\b/.test(text)) {
+    const area = AREAS.find((a) => text.includes(a.name.toLowerCase()));
+    const switching = /\b(switch|change|use|set)\b/.test(text);
+    if (switching) {
+      const target = OUTLETS.find((o) => text.includes(o.area.toLowerCase()));
+      const fulfilment = /\bpick ?up\b/.test(text) ? "pickup" : "delivery";
+      if (!target) {
+        streamText(emit, "(Mock) Which outlet would you like?");
+        finish();
+        return;
+      }
+      const outcome = await tool("set_outlet", { outlet: target.id, fulfilment });
+      streamText(emit, outcome.outletChange ? `(Mock) Done: ${outcome.outletChange.message}.` : `(Mock) ${String(outcome.result.error)}`);
+      finish();
+      return;
+    }
+    const outcome = await tool("find_outlets", area ? { area: area.name } : {});
+    const list = outcome.result.outlets as { name: string; distance?: string; delivers_here?: boolean }[] | undefined;
+    const first = list?.[0];
+    streamText(
+      emit,
+      first?.distance
+        ? `(Mock) The nearest outlet is ${first.name}, ${first.distance} away.${first.delivers_here ? " It delivers to you." : " It's outside the delivery radius, so pickup only."}`
+        : "(Mock) Share your location or tell me your area, and I'll find the nearest outlet.",
+    );
     finish();
     return;
   }

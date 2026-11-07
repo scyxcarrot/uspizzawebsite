@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { findOutlet } from "@/data/outlets";
 import { validateCheckout, type CheckoutErrors } from "@/lib/checkout";
+import { deliveryEstimate, formatKm, pickupEstimate } from "@/lib/outlets";
 import { formatRM } from "@/lib/money";
 import { useAppState } from "@/components/AppStateProvider";
 import { CartLines, CartTotals, FulfilmentToggle } from "@/components/cart/CartParts";
 
 export function CheckoutView() {
-  const { ready, summary, fulfilment, placeOrder, setCartOpen } = useAppState();
+  const { ready, summary, fulfilment, placeOrder, setCartOpen, outlet, openOutletPicker } = useAppState();
+  const chosenOutlet = outlet ? findOutlet(outlet.outletId) : undefined;
   const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -18,7 +21,7 @@ export function CheckoutView() {
   const [submitted, setSubmitted] = useState(false);
   const [placing, setPlacing] = useState(false);
 
-  const form = { fulfilment, name, phone, address };
+  const form = { fulfilment, name, phone, address, outletId: outlet?.outletId ?? null };
   // After the first submit, re-validate as the customer types.
   const shownErrors = submitted ? validateCheckout(form, summary) : errors;
 
@@ -29,7 +32,7 @@ export function CheckoutView() {
     setErrors(result);
     if (Object.keys(result).length > 0) {
       // Move focus to the first field with a problem.
-      const first = (["name", "phone", "address"] as const).find((k) => result[k]);
+      const first = (["outlet", "name", "phone", "address"] as const).find((k) => result[k]);
       if (first) document.getElementById(`checkout-${first}`)?.focus();
       return;
     }
@@ -88,6 +91,40 @@ export function CheckoutView() {
           <section className="rounded-card border border-line bg-white p-5 shadow-card">
             <h2 className="mb-3 text-xl font-extrabold">How would you like it?</h2>
             <FulfilmentToggle />
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2" data-testid="checkout-outlet">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-ink-soft">{fulfilment === "pickup" ? "Pick up at" : "Delivered from"}</p>
+                {chosenOutlet ? (
+                  <>
+                    <p className="font-bold">{chosenOutlet.name}</p>
+                    <p className="text-sm text-ink-soft">
+                      {outlet?.distanceKm !== undefined && `${formatKm(outlet.distanceKm)} · `}
+                      {fulfilment === "pickup"
+                        ? pickupEstimate().label
+                        : outlet?.distanceKm !== undefined
+                          ? deliveryEstimate(outlet.distanceKm).label
+                          : "Delivery time depends on your address (estimate shown after choosing your area)"}
+                    </p>
+                  </>
+                ) : (
+                  <p className="font-bold">No outlet chosen yet</p>
+                )}
+              </div>
+              <button
+                id="checkout-outlet"
+                type="button"
+                onClick={() => openOutletPicker()}
+                className="inline-flex min-h-11 items-center rounded-full border-2 border-ink px-4 font-bold"
+                aria-describedby={shownErrors.outlet ? "checkout-outlet-error" : undefined}
+              >
+                {chosenOutlet ? "Change outlet" : "Choose outlet"}
+              </button>
+              {shownErrors.outlet && (
+                <p id="checkout-outlet-error" role="alert" className="w-full text-sm font-semibold text-brand-dark">
+                  {shownErrors.outlet}
+                </p>
+              )}
+            </div>
           </section>
 
           <section className="rounded-card border border-line bg-white p-5 shadow-card">

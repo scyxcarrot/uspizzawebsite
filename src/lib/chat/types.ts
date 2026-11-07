@@ -13,6 +13,8 @@ export type ChatEvent =
   | { type: "cart"; cart: CartLine[]; message: string; planAdded?: boolean }
   /** Structured data built by code from a tool result, drawn by the browser. */
   | { type: "card"; card: ChatCard }
+  /** The customer changed outlet through the chat (validated by code). */
+  | { type: "outlet"; outletId: string; fulfilment: "delivery" | "pickup"; distanceKm?: number; message: string }
   | { type: "sources"; sources: Source[] }
   | { type: "error"; code: ChatErrorCode; message: string; retryable: boolean }
   | { type: "done" };

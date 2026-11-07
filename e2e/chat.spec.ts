@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSimple, isPhone, overlaps, screenshot } from "./helpers";
+import { addSimple, chooseOutlet, isPhone, overlaps, screenshot } from "./helpers";
 
 async function openChat(page: Page) {
   await page.getByTestId("chat-launcher").click();
@@ -153,6 +153,7 @@ test.describe("chat failures keep ordering working", () => {
     await page.getByTestId("chat-close").click();
 
     // Ordering is unaffected.
+    await chooseOutlet(page, "delivery");
     await addSimple(page, "beef-bolognese");
     await expect(page.getByTestId("cart-count")).toHaveText("1");
     await page.goto("/checkout");

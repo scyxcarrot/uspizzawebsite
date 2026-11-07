@@ -78,6 +78,8 @@ export async function runChatTurn(args: {
     now,
     webSearch: (query) => webSearch(ai, config.searchModel, query, signal),
     pendingPlan: request.pendingPlan,
+    location: request.location,
+    outletId: request.outletId,
   };
   const sources: Source[] = [];
   const turn: TurnCards = { cards: [], cartChanged: false };
@@ -100,7 +102,7 @@ export async function runChatTurn(args: {
           model: modelName,
           contents,
           config: {
-            systemInstruction: buildSystemPrompt(now, request.page),
+            systemInstruction: buildSystemPrompt(now, request.page, request.outletId, !!request.location),
             tools: [{ functionDeclarations: TOOL_DECLARATIONS.map((t) => ({ ...t })) }],
             maxOutputTokens: LIMITS.maxOutputTokens,
             abortSignal,
@@ -239,6 +241,10 @@ export function applyOutcome(outcome: ToolOutcome, ctx: ToolContext, emit: Emit,
       message: outcome.cartMessage ?? "Cart updated",
       ...(outcome.planAdded ? { planAdded: true } : {}),
     });
+  }
+  if (outcome.outletChange) {
+    ctx.outletId = outcome.outletChange.outletId;
+    emit({ type: "outlet", ...outcome.outletChange });
   }
   if (outcome.card) turn.cards.push(outcome.card);
 }

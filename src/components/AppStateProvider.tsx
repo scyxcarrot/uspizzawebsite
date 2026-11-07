@@ -32,8 +32,23 @@ import {
 import { createOrder, nextOrderId, sanitizeBrowserOrders, type Customer, type Order } from "@/lib/orders";
 import { priceCart, type CartSummary, type Fulfilment } from "@/lib/pricing";
 import { STORAGE_KEYS, readJSON, writeJSON } from "@/lib/storage";
+import { findOutlet } from "@/data/outlets";
+import type { LatLng } from "@/lib/outlets";
 
-type StoredApp = { cart?: unknown; orders?: unknown; fulfilment?: unknown };
+type StoredApp = { cart?: unknown; orders?: unknown; fulfilment?: unknown; outlet?: unknown };
+
+/** The chosen demo outlet. Saved in the browser; never contains the customer's coordinates. */
+export type OutletChoice = { outletId: string; distanceKm?: number; areaLabel?: string };
+
+function sanitizeOutletChoice(raw: unknown): OutletChoice | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.outletId !== "string" || !findOutlet(r.outletId)) return null;
+  const choice: OutletChoice = { outletId: r.outletId };
+  if (typeof r.distanceKm === "number" && Number.isFinite(r.distanceKm) && r.distanceKm >= 0 && r.distanceKm < 100) choice.distanceKm = r.distanceKm;
+  if (typeof r.areaLabel === "string" && r.areaLabel.length <= 60) choice.areaLabel = r.areaLabel;
+  return choice;
+}
 
 export type Notice = { id: number; text: string; tone: "success" | "info" };
 
@@ -61,6 +76,15 @@ type AppState = {
   setFocusItemId: (id: string | null) => void;
   notice: Notice | null;
   showNotice: (text: string, tone?: Notice["tone"]) => void;
+  outlet: OutletChoice | null;
+  /** Choose an outlet and how to get the order. */
+  chooseOutlet: (choice: OutletChoice | null, fulfilment?: Fulfilment) => void;
+  /** The customer's shared location: kept in memory for this visit only, never saved. */
+  location: LatLng | null;
+  setLocation: (location: LatLng | null) => void;
+  outletPicker: { open: boolean; mode: Fulfilment };
+  openOutletPicker: (mode?: Fulfilment) => void;
+  closeOutletPicker: () => void;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
@@ -73,6 +97,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [cartOpen, setCartOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [focusItemId, setFocusItemId] = useState<string | null>(null);
+  const [outlet, setOutlet] = useState<OutletChoice | null>(null);
+  const [location, setLocation] = useState<LatLng | null>(null);
+  const [outletPicker, setOutletPicker] = useState<{ open: boolean; mode: Fulfilment }>({ open: false, mode: "delivery" });
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeId = useRef(0);
 
@@ -83,6 +110,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setCart(sanitizeCart(saved?.cart));
       setOrders(sanitizeBrowserOrders(saved?.orders));
       setFulfilment(saved?.fulfilment === "pickup" ? "pickup" : "delivery");
+      setOutlet(sanitizeOutletChoice(saved?.outlet));
     };
     // Reading localStorage after hydration is a deliberate one-off sync from
     // an external system; doing it during render would cause a hydration
@@ -103,8 +131,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // Save whenever something changes (but not before we have loaded).
   useEffect(() => {
     if (!ready) return;
-    writeJSON(STORAGE_KEYS.app, { cart, orders, fulfilment });
-  }, [ready, cart, orders, fulfilment]);
+    writeJSON(STORAGE_KEYS.app, { cart, orders, fulfilment, outlet });
+  }, [ready, cart, orders, fulfilment, outlet]);
 
   const showNotice = useCallback((text: string, tone: Notice["tone"] = "success") => {
     noticeId.current += 1;
@@ -153,13 +181,24 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         cart,
         fulfilment,
         customer,
+        outletId: outlet?.outletId,
       });
       setOrders((prev) => [order, ...prev]);
       setCart([]);
       return order;
     },
-    [cart, orders, fulfilment],
+    [cart, orders, fulfilment, outlet],
   );
+
+  const chooseOutlet = useCallback((choice: OutletChoice | null, f?: Fulfilment) => {
+    setOutlet(choice ? sanitizeOutletChoice(choice) : null);
+    if (f) setFulfilment(f);
+  }, []);
+  const openOutletPicker = useCallback(
+    (mode?: Fulfilment) => setOutletPicker({ open: true, mode: mode ?? fulfilment }),
+    [fulfilment],
+  );
+  const closeOutletPicker = useCallback(() => setOutletPicker((p) => ({ ...p, open: false })), []);
 
   const summary = useMemo(() => priceCart(cart, fulfilment), [cart, fulfilment]);
 
@@ -184,6 +223,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setFocusItemId,
     notice,
     showNotice,
+    outlet,
+    chooseOutlet,
+    location,
+    setLocation,
+    outletPicker,
+    openOutletPicker,
+    closeOutletPicker,
   };
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

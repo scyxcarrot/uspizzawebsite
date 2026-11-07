@@ -48,7 +48,7 @@ const markPlansAdded = (m: ChatMessage): ChatMessage => ({
 });
 
 export function useChat() {
-  const { cart, orders, fulfilment, replaceCart, showNotice, addLines, focusItemId } = useAppState();
+  const { cart, orders, fulfilment, replaceCart, showNotice, addLines, focusItemId, location, outlet, chooseOutlet } = useAppState();
   const pathname = usePathname();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -59,8 +59,8 @@ export function useChat() {
   const abortRef = useRef<AbortController | null>(null);
 
   // Keep the latest values in refs so the send function always uses them.
-  const latest = useRef({ messages, cart, orders, fulfilment, pathname, focusItemId });
-  latest.current = { messages, cart, orders, fulfilment, pathname, focusItemId };
+  const latest = useRef({ messages, cart, orders, fulfilment, pathname, focusItemId, location, outlet });
+  latest.current = { messages, cart, orders, fulfilment, pathname, focusItemId, location, outlet };
 
   useEffect(() => {
     // One-off read from browser storage after hydration (see AppStateProvider).
@@ -114,6 +114,11 @@ export function useChat() {
             pendingPlan: pendingPlan(conversation)?.lines,
             // Where the customer is, so "is this spicy?" works. Validated on the server.
             page: { path: latest.current.pathname, ...(latest.current.focusItemId ? { itemId: latest.current.focusItemId } : {}) },
+            outletId: latest.current.outlet?.outletId,
+            // Only while shared this visit, rounded to about 100 m. The server never stores or logs it.
+            ...(latest.current.location
+              ? { location: { lat: Math.round(latest.current.location.lat * 1000) / 1000, lng: Math.round(latest.current.location.lng * 1000) / 1000 } }
+              : {}),
           }),
         });
 
@@ -164,6 +169,11 @@ export function useChat() {
                   setMessages((prev) => prev.map((m) => (m.cards?.some((c) => c.kind === "plan") ? markPlansAdded(m) : m)));
                 }
                 break;
+              case "outlet":
+                chooseOutlet({ outletId: event.outletId, ...(event.distanceKm !== undefined ? { distanceKm: event.distanceKm } : {}) }, event.fulfilment);
+                showNotice(event.message);
+                updateMessage(assistantId, (m) => ({ ...m, cartNotes: [...(m.cartNotes ?? []), event.message] }));
+                break;
               case "card": {
                 const card = sanitizeCard(event.card);
                 if (card) updateMessage(assistantId, (m) => ({ ...m, cards: [...(m.cards ?? []), card] }));
@@ -194,7 +204,7 @@ export function useChat() {
         setAnnouncement(finalText ? `Assistant: ${finalText}` : "");
       }
     },
-    [busy, replaceCart, showNotice],
+    [busy, replaceCart, showNotice, chooseOutlet],
   );
 
   /** Remove a failed reply (and the question before it) and ask again. */

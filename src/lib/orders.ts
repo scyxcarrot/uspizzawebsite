@@ -2,6 +2,7 @@
 // since the order was placed, never decided by the AI.
 
 import { z } from "zod";
+import { findOutlet } from "@/data/outlets";
 import { sanitizeCart, type CartLine } from "@/lib/cart";
 import { priceCart, type Fulfilment, type PricedLine } from "@/lib/pricing";
 
@@ -38,6 +39,8 @@ export type Order = {
   subtotalSen: number;
   deliveryFeeSen: number;
   totalSen: number;
+  /** The demo outlet that prepares the order. */
+  outletId?: string;
   /** Seeded demo orders have a fixed status instead of a timed one. */
   fixedStatus?: OrderStatus;
 };
@@ -109,6 +112,7 @@ export function createOrder(args: {
   cart: CartLine[];
   fulfilment: Fulfilment;
   customer: Customer;
+  outletId?: string;
   fixedStatus?: OrderStatus;
 }): Order {
   const summary = priceCart(args.cart, args.fulfilment);
@@ -126,6 +130,7 @@ export function createOrder(args: {
     deliveryFeeSen: summary.deliveryFeeSen,
     totalSen: summary.totalSen,
   };
+  if (args.outletId && findOutlet(args.outletId)) order.outletId = args.outletId;
   if (args.fixedStatus) order.fixedStatus = args.fixedStatus;
   return order;
 }
@@ -144,6 +149,7 @@ const browserOrderSchema = z.object({
     })
     .optional(),
   lines: z.array(z.unknown()).max(50),
+  outletId: z.string().max(64).optional(),
 });
 
 export function sanitizeBrowserOrders(raw: unknown): Order[] {
@@ -162,6 +168,7 @@ export function sanitizeBrowserOrders(raw: unknown): Order[] {
         cart: sanitizeCart(parsed.data.lines),
         fulfilment: parsed.data.fulfilment,
         customer: parsed.data.customer ?? { name: "", phone: "" },
+        outletId: parsed.data.outletId,
       }),
     );
   }

@@ -154,3 +154,18 @@ describe("findOrder", () => {
     expect(findOrder("pizza", SEEDED_ORDERS, browser)).toBeUndefined();
   });
 });
+
+describe("orders keep their outlet", () => {
+  it("stores a real outlet and drops an unknown one", async () => {
+    const { createOrder: create, sanitizeBrowserOrders: sanitize } = await import("@/lib/orders");
+    const base = { id: "US-2001", placedAt: new Date(), cart: [{ lineId: "cola", itemId: "cola", quantity: 1 }], fulfilment: "pickup" as const, customer: { name: "A", phone: "0123456789" } };
+    expect(create({ ...base, outletId: "klcc" }).outletId).toBe("klcc");
+    expect(create({ ...base, outletId: "atlantis" }).outletId).toBeUndefined();
+    expect(sanitize([{ ...create({ ...base, outletId: "bangsar" }), lines: base.cart }])[0]?.outletId).toBe("bangsar");
+  });
+
+  it("seeded orders have outlets", async () => {
+    const { SEEDED_ORDERS } = await import("@/data/orders");
+    expect(SEEDED_ORDERS.every((o) => o.outletId)).toBe(true);
+  });
+});

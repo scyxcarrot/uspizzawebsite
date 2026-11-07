@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { addPizza, addSimple, expectNoHorizontalScroll, isPhone, openCart, screenshot } from "./helpers";
+import { addPizza, addSimple, chooseOutlet, expectNoHorizontalScroll, isPhone, openCart, screenshot } from "./helpers";
 
 test.describe("ordering flow", () => {
   test("full order from menu to tracking", async ({ page }, testInfo) => {
@@ -43,6 +43,16 @@ test.describe("ordering flow", () => {
     await page.getByLabel("Full name").fill("Siti Aminah");
     await page.getByLabel("Phone number").fill("012-345 6789");
     await page.getByLabel("Delivery address").fill("12 Jalan Demo, Petaling Jaya");
+    // No outlet chosen yet: checkout asks for one.
+    await page.getByTestId("place-order").click();
+    await expect(page.getByText("Please choose the outlet to deliver from.")).toBeVisible();
+    await page.goto("/");
+    await chooseOutlet(page, "delivery");
+    await page.goto("/checkout");
+    await expect(page.getByTestId("checkout-outlet")).toContainText("Demo Outlet – Petaling Jaya");
+    await page.getByLabel("Full name").fill("Siti Aminah");
+    await page.getByLabel("Phone number").fill("012-345 6789");
+    await page.getByLabel("Delivery address").fill("12 Jalan Demo, Petaling Jaya");
     await screenshot(page, testInfo, "checkout");
     await page.getByTestId("place-order").click();
 
@@ -52,6 +62,7 @@ test.describe("ordering flow", () => {
     await expect(page.getByTestId("order-status")).toHaveText("Order received");
     await expect(page.getByTestId("order-total")).toHaveText("RM 98.00");
     await expect(page.getByTestId("cart-count")).toHaveText("0");
+    await expect(page.getByTestId("order-outlet")).toHaveText("From Demo Outlet – Petaling Jaya");
     await screenshot(page, testInfo, "order");
 
     // The status changes without a page refresh.
@@ -82,10 +93,12 @@ test.describe("ordering flow", () => {
   test("seeded orders show their fixed status", async ({ page }) => {
     await page.goto("/order/US-1002");
     await expect(page.getByTestId("order-status")).toHaveText("Out for delivery");
+    await expect(page.getByTestId("order-outlet")).toHaveText("From Demo Outlet – Bangsar");
   });
 
   test("delivery minimum is enforced and pickup removes the address and fee", async ({ page }) => {
     await page.goto("/");
+    await chooseOutlet(page, "delivery");
     await addSimple(page, "cola");
     await page.goto("/checkout");
     await expect(page.getByTestId("minimum-warning")).toBeVisible();

@@ -43,6 +43,15 @@ Exclusions ("no beef", "no seafood", "no nuts", "no spicy") and dietary needs ar
 
 Every change is listed on the card. If even the smallest basket is over budget (for example "feed 10 people for RM10"), the planner returns that closest option and marks it clearly as over budget, by how much. If nothing on the menu fits an exclusion (for example "no gluten" leaves no pizza), it says so. The card also shows a free-delivery hint or the delivery minimum when they apply. Totals come from the same pricing functions as the cart, and unit tests check that they match.
 
+**Outlets: delivery or pickup**
+- On the first visit, a bar under the header asks "Delivery or pickup?" without blocking the menu. After choosing, it shows "Delivery from: Bangsar ▾" or "Pickup at: KLCC ▾", which changes the outlet at any time. The choice is saved in the browser.
+- Delivery: **Use my location** (asked only when tapped) or pick your area. Code assigns the nearest outlet within an **8 km straight-line radius, a demo assumption**. If none is in range (for example Klang), it says so and offers pickup.
+- Pickup: a searchable list of outlets, nearest first when a location or area is known, with distance, an estimated ready time, and open or closed now.
+- Estimates come from tested code: 15–20 minutes of kitchen time, plus driving at an average city speed of 25 km/h with a margin for traffic, shown as a range and labelled "estimate".
+- Checkout, the confirmation page, the tracker and the seeded orders show the outlet. Checkout asks for one if none is chosen.
+- The assistant can find outlets ("Which outlet is nearest to Bangsar?") with `find_outlets` and change outlet or delivery/pickup ("Switch me to pickup at KLCC") with `set_outlet`. It can only use the six demo outlets.
+- A link, **See real US Pizza outlets on Google Maps**, opens an official Google Maps search (no API key), labelled "Real outlets from Google Maps. This demo does not take orders for them."
+
 **Ordering**
 - Menu with 20 items in 5 categories, original illustrations, dietary tags and allergens
 - Pizza options: Regular or Large, and Hand-Tossed, Thin or Cheese-Stuffed (+RM 5)
@@ -64,6 +73,18 @@ Every change is listed on the card. If even the smallest basket is over budget (
 - Clear-chat button, suggested starter questions, keyboard and screen-reader support
 - Friendly messages and a retry button when something goes wrong; ordering keeps working if the AI is down
 - A daily cap on AI requests so the free quota is never used up by surprise
+
+### What is real and what is dummy data
+
+- **Menu, prices, store policies, orders and outlets are all dummy data**, made up for this demo. Nothing is sent to a restaurant.
+- **Outlets.** I first planned to use US Pizza's real outlet list. Their terms of use (https://uspizza.my/term-of-use/) do not allow automated collection ("spider, crawl, or scrape") or copying any part of the service without permission, so the demo uses **six invented outlets placed in real Klang Valley areas**: Damansara Heights, Bangsar, Petaling Jaya, Subang Jaya, Cheras and KLCC. The coordinates are approximate area centres, so distances and "nearest outlet" behave realistically. The addresses say "not a real store", and the hours are labelled demo hours. A real version would use US Pizza's official outlet data or API, with their permission. For the real outlets, the site links to a Google Maps search instead of copying anything.
+- The site sends `noindex` (a meta tag and an `X-Robots-Tag` header), so search engines don't list it.
+
+### Your location
+
+- The browser asks for your location only when you tap **Use my location**. You can always pick an area instead.
+- The coordinates stay in the open browser tab's memory. They are not saved in browser storage; only the chosen outlet, distance and area name are saved.
+- While shared, they are sent, rounded to about 100 m, with chat requests so that `find_outlets` can work out distances. The server uses them for that request only. It never stores or logs them, and never passes them to Gemini: the AI only sees the resulting outlet list and distances.
 
 ## 3. Setup and tests
 
@@ -94,7 +115,7 @@ Get a key from [Google AI Studio](https://aistudio.google.com/apikey). Without a
 | `npm run typecheck` | TypeScript in strict mode |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | Browser tests (Playwright) at 360×800, 390×844, 768×1024 and 1440×900. Builds the app and runs it in mock mode. First run: `npx playwright install chromium`. Screenshots go to `screenshots/`. |
-| `npm run eval:chat` | Sends the 23 acceptance questions (the original 20, plus the group order planner, an impossible plan, and page awareness) to the **real** AI one at a time and prints a PASS / FAIL / REVIEW table. Start the app with a real key first (`npm run dev`). Options: `EVAL_BASE_URL`, `EVAL_DELAY_MS`, `EVAL_ONLY=4,12`. Replies are saved to `eval-results/` (not committed); the runs reported below are kept in `docs/eval-results/`. |
+| `npm run eval:chat` | Sends the 25 acceptance questions (the original 20, plus the group order planner, an impossible plan, page awareness, the nearest outlet, and changing outlet) to the **real** AI one at a time and prints a PASS / FAIL / REVIEW table. Start the app with a real key first (`npm run dev`). Options: `EVAL_BASE_URL`, `EVAL_DELAY_MS`, `EVAL_ONLY=4,12`. Replies are saved to `eval-results/` (not committed); the runs reported below are kept in `docs/eval-results/`. |
 | `node scripts/generate-menu-images.mjs` | Regenerates the menu illustrations |
 
 ### Model choice (checked 6 November 2026)
@@ -190,6 +211,7 @@ Gemini reads the question and chooses a tool. There is no separate classifier.
 | Live | "Weather in KL today?" | `web_search` makes a separate Gemini request with Google Search and returns sources |
 | Group order | "Feed 6 people under RM120, 2 are vegetarian, no beef" | `plan_order` builds the basket in code (see "Group order planner") and the chat shows it as a card; `add_plan_to_cart` adds it only after a clear yes |
 | About the open item | "Is this spicy?" (with an item open) | The request says which item is open; the server checks it is a real item and tells Gemini, which calls `get_item` |
+| Outlets | "Which outlet is nearest to Bangsar?" / "Switch me to pickup at KLCC" | `find_outlets` works out distances, the 8 km delivery radius, open or closed now and estimates in code; `set_outlet` changes the outlet in the browser after checking it exists and is in range |
 | General | "Explain inflation simply" | Gemini answers directly |
 
 Safety rules in the system prompt and the code:
@@ -258,8 +280,8 @@ Run on 6 and 7 November 2026 on Windows 11, Node 22.18. The raw replies for each
 |---|---|
 | `npm run lint` | Passed, no warnings |
 | `npm run typecheck` | Passed |
-| `npm test` (Vitest) | **207 / 207 passed.** Covers the group order planner (portion rule, budgets never exceeded, exclusions and dietary needs never relaxed, impossible requests, totals matching the pricing functions, a plan never added twice), chat cards and their validation, page context validation, pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, the chatbot's delivery-minimum note (and none for pickup), checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
-| `npm run test:e2e` (Playwright) | **84 / 84 passed** (21 tests at each of the 4 sizes): the group order planner (plan card, nothing added until "Add all to cart", adding with no AI request, saying yes, an impossible budget), item, cart and order cards, page awareness ("Is this spicy?" and "Add this" for the open item), full order from menu to tracking, chat adding to the cart (mock mode), no sideways scrolling, chat button not overlapping controls, cart and chat surviving a refresh, resizing, keyboard use, and failure messages (missing key, rate limit, network failure) with ordering still working |
+| `npm test` (Vitest) | **233 / 233 passed.** Covers outlets (distance, nearest outlet, the delivery radius and its edge, open or closed including after midnight, estimates, `find_outlets`, `set_outlet`, location and outlet validation), the group order planner (portion rule, budgets never exceeded, exclusions and dietary needs never relaxed, impossible requests, totals matching the pricing functions, a plan never added twice), chat cards and their validation, page context validation, pricing, crust charges, delivery fee thresholds, minimum order, status timing, cart changes, the chatbot's delivery-minimum note (and none for pickup), checkout validation, every tool's input validation, markdown link safety, request limits, rate limiting, the daily cap, the model fallback (including no repeated cart changes and no retry after text has streamed), error mapping, and the API route (missing key, bad input, mock mode refused in production, daily cap reached) |
+| `npm run test:e2e` (Playwright) | **108 / 108 passed** (27 tests at each of the 4 sizes): outlet selection (first-visit prompt that doesn't block the menu, a mocked shared location, a denied location falling back to an area, out of range offering pickup, pickup search, the outlet on checkout and the tracker, coordinates never saved, the chatbot finding and changing outlets, noindex), the group order planner (plan card, nothing added until "Add all to cart", adding with no AI request, saying yes, an impossible budget), item, cart and order cards, page awareness ("Is this spicy?" and "Add this" for the open item), full order from menu to tracking, chat adding to the cart (mock mode), no sideways scrolling, chat button not overlapping controls, cart and chat surviving a refresh, resizing, keyboard use, and failure messages (missing key, rate limit, network failure) with ordering still working |
 | Function calling and streaming | Confirmed live on `gemini-3.5-flash-lite`: the model called `get_item` and the reply arrived in several streamed chunks |
 | Invalid API key | Checked against the real Gemini API with a fake key: the browser gets the friendly message, the raw error stays in the server log |
 | Daily cap | Checked live with the cap set to 1: the turn stopped after one Gemini call with the friendly message, and the next request was refused (HTTP 429) without calling Gemini |

@@ -14,6 +14,7 @@ export const SEEDED_ORDERS: Order[] = [
       { lineId: "garlic-bread", itemId: "garlic-bread", quantity: 1 },
       { lineId: "cola", itemId: "cola", quantity: 2 },
     ],
+    outletId: "petaling-jaya",
     fixedStatus: "delivered",
   }),
   createOrder({
@@ -26,6 +27,7 @@ export const SEEDED_ORDERS: Order[] = [
       { lineId: "chicken-wings", itemId: "chicken-wings", quantity: 1 },
       { lineId: "iced-lemon-tea", itemId: "iced-lemon-tea", quantity: 1 },
     ],
+    outletId: "bangsar",
     fixedStatus: "out-for-delivery",
   }),
   createOrder({
@@ -43,6 +45,7 @@ export const SEEDED_ORDERS: Order[] = [
       },
       { lineId: "mango-ice-cream", itemId: "mango-ice-cream", quantity: 1 },
     ],
+    outletId: "cheras",
     fixedStatus: "preparing",
   }),
 ];

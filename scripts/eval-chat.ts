@@ -1,5 +1,5 @@
 // Live chatbot evaluation: sends the acceptance questions (20, plus 3 for the
-// group order planner and page awareness) to the real
+// group order planner and page awareness, and 2 for outlets) to the real
 // /api/chat endpoint one at a time, checks tools used and key facts, and
 // prints a PASS / FAIL / REVIEW table.
 //
@@ -34,6 +34,7 @@ type Reply = {
   cartAfter: CartLine[];
   sources: Source[];
   cards: ChatCard[];
+  outletChanges: { outletId: string; fulfilment: string }[];
   error?: string;
   ms: number;
 };
@@ -339,11 +340,38 @@ const CASES: Case[] = [
         [r.cartEvents.length === 0, "cart changed"],
       ),
   },
+  {
+    n: 24,
+    q: "Which outlet is nearest to Bangsar, and is it open now?",
+    expect: "find_outlets; names Demo Outlet – Bangsar, says open or closed from the tool, invents no outlet",
+    check: (r) => {
+      const c = all(
+        [usedAny(r, "find_outlets"), "find_outlets not used"],
+        [/Demo Outlet\s*[–-]\s*Bangsar|Bangsar outlet/i.test(r.text), "does not name the Bangsar demo outlet"],
+        [/\b(open|closed)\b/i.test(r.text), "does not say open or closed"],
+        [!/\b(Mid Valley|Bangsar South|Telawi|Bangsar Shopping Centre)\b.*outlet/i.test(r.text), "mentions an outlet that does not exist"],
+        [r.cartEvents.length === 0, "cart changed"],
+      );
+      return c.pass ? ok("check it presents the outlet as a demo outlet and gives no real address", true) : c;
+    },
+  },
+  {
+    n: 25,
+    q: "Please switch me to pickup at the KLCC outlet",
+    expect: "set_outlet to Demo Outlet – KLCC for pickup; confirms the change",
+    check: (r) =>
+      all(
+        [usedAny(r, "set_outlet"), "set_outlet not used"],
+        [r.outletChanges.some((o) => o.outletId === "klcc" && o.fulfilment === "pickup"), "outlet not changed to KLCC pickup"],
+        [/KLCC/i.test(r.text), "does not confirm KLCC"],
+        [r.cartEvents.length === 0, "cart changed"],
+      ),
+  },
 ];
 
 async function ask(question: string, cart: CartLine[], page?: Case["page"]): Promise<Reply> {
   const started = Date.now();
-  const reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: cart, sources: [], cards: [], ms: 0 };
+  const reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: cart, sources: [], cards: [], outletChanges: [], ms: 0 };
   const res = await fetch(`${BASE_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -367,6 +395,7 @@ async function ask(question: string, cart: CartLine[], page?: Case["page"]): Pro
     }
     if (e.type === "sources") reply.sources = e.sources;
     if (e.type === "card") reply.cards.push(e.card);
+    if (e.type === "outlet") reply.outletChanges.push({ outletId: e.outletId, fulfilment: e.fulfilment });
     if (e.type === "error") reply.error = `${e.code}: ${e.message}`;
   }
   reply.ms = Date.now() - started;
@@ -387,12 +416,12 @@ async function main() {
     if (c.cartIfResumed && previous !== c.n - 1) cart = c.cartIfResumed;
     previous = c.n;
     const before = cart;
-    let reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], cards: [], ms: 0 };
+    let reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], cards: [], outletChanges: [], ms: 0 };
     for (let attempt = 0; attempt <= RATE_LIMIT_RETRIES; attempt++) {
       try {
         reply = await ask(c.q, before, c.page);
       } catch (err) {
-        reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], cards: [], error: String(err), ms: 0 };
+        reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], cards: [], outletChanges: [], error: String(err), ms: 0 };
       }
       // A per-minute rate limit is not a chatbot failure: wait and ask again.
       if (!reply.error?.startsWith("rate_limited") || attempt === RATE_LIMIT_RETRIES) break;

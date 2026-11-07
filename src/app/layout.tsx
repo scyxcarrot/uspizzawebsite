@@ -8,6 +8,8 @@ import { ChatWidget } from "@/components/chat/ChatWidget";
 import { NoticeToast } from "@/components/layout/NoticeToast";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { OutletBar } from "@/components/outlets/OutletBar";
+import { OutletPicker } from "@/components/outlets/OutletPicker";
 
 const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
 const body = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <AppStateProvider>
           <SiteHeader />
+          <OutletBar />
           <main id="main" className="flex-1">
             {children}
           </main>
@@ -46,6 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <ViewCartBar />
           <NoticeToast />
           <ChatWidget />
+          <OutletPicker />
         </AppStateProvider>
       </body>
     </html>

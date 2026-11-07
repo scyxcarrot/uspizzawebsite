@@ -11,6 +11,18 @@ import { MAX_ITEM_CARDS, planCard, type ChatCard } from "@/lib/chat/cards";
 import { formatRM } from "@/lib/money";
 import { findOrder, getOrderStatus, normaliseOrderId, statusLabel, type Order } from "@/lib/orders";
 import { MAX_PEOPLE, PLAN_RULE, planOrder } from "@/lib/planner";
+import { OUTLETS, OUTLETS_NOTE, findOutlet, type Outlet } from "@/data/outlets";
+import {
+  DELIVERY_RADIUS_KM,
+  deliveryEstimate,
+  findArea,
+  formatKm,
+  hoursLabel,
+  isOpenAt,
+  outletsByDistance,
+  pickupEstimate,
+  type LatLng,
+} from "@/lib/outlets";
 import { crustName, priceCart, type Fulfilment } from "@/lib/pricing";
 import type { Source } from "@/lib/chat/types";
 
@@ -128,6 +140,31 @@ export const TOOL_DECLARATIONS = [
     parametersJsonSchema: { type: "object", properties: {} },
   },
   {
+    name: "find_outlets",
+    description:
+      "Find the demo outlets nearest the customer, using their shared location or a named area (e.g. 'Bangsar'). Returns distances, whether each delivers there, open or closed now, demo hours and time estimates. These are the only outlets that exist.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        area: { type: "string", description: "An area or outlet name, if the customer named one. Leave out to use their shared location." },
+      },
+    },
+  },
+  {
+    name: "set_outlet",
+    description:
+      "Change the customer's outlet and/or delivery or pickup, only when they ask to. Use an outlet id from find_outlets.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        outlet: { type: "string", description: "Outlet id or name, e.g. 'klcc'." },
+        fulfilment: { type: "string", enum: ["delivery", "pickup"] },
+        area: { type: "string", description: "For delivery: the customer's area, to check the delivery radius." },
+      },
+      required: ["outlet", "fulfilment"],
+    },
+  },
+  {
     name: "web_search",
     description:
       "Search the web for current information such as weather, news, sports results, or prices elsewhere. Returns a short answer and sources.",
@@ -150,6 +187,8 @@ export const TOOL_STATUS: Record<ToolName, string> = {
   add_to_cart: "Updating your cart…",
   update_cart: "Updating your cart…",
   plan_order: "Planning your group order…",
+  find_outlets: "Finding outlets near you…",
+  set_outlet: "Changing your outlet…",
   add_plan_to_cart: "Updating your cart…",
   web_search: "Searching the web…",
 };
@@ -195,6 +234,10 @@ export const TOOL_INPUT_SCHEMAS = {
     .strict()
     .refine((a) => (a.vegetarians ?? 0) <= a.people, { message: "vegetarians cannot be more than people" }),
   add_plan_to_cart: z.object({}).strict(),
+  find_outlets: z.object({ area: z.string().trim().min(1).max(60).optional() }).strict(),
+  set_outlet: z
+    .object({ outlet: text(60), fulfilment: z.enum(["delivery", "pickup"]), area: z.string().trim().min(1).max(60).optional() })
+    .strict(),
   web_search: z.object({ query: text(300) }).strict(),
 } satisfies Record<ToolName, z.ZodType>;
 
@@ -210,6 +253,10 @@ export type ToolContext = {
   webSearch: (query: string) => Promise<WebSearchResult>;
   /** The group order plan shown most recently and not yet added. */
   pendingPlan?: CartLine[];
+  /** The customer's shared location (this request only; never stored or logged). */
+  location?: LatLng;
+  /** The outlet currently chosen in the browser. */
+  outletId?: string;
 };
 
 export type ToolOutcome = {
@@ -223,6 +270,8 @@ export type ToolOutcome = {
   sources?: Source[];
   /** Structured data for the chat to draw (built here, never by the model). */
   card?: ChatCard;
+  /** A validated outlet change for the browser to apply. */
+  outletChange?: { outletId: string; fulfilment: Fulfilment; distanceKm?: number; message: string };
 };
 
 export function isToolName(name: string): name is ToolName {
@@ -277,6 +326,10 @@ export async function runTool(name: string, rawArgs: unknown, ctx: ToolContext):
       return planOrderTool(args, ctx);
     case "add_plan_to_cart":
       return addPlanToCartTool(ctx);
+    case "find_outlets":
+      return findOutletsTool(args, ctx);
+    case "set_outlet":
+      return setOutletTool(args, ctx);
     case "web_search":
       return webSearchTool(args, ctx);
   }
@@ -532,6 +585,79 @@ function addPlanToCartTool(ctx: ToolContext): ToolOutcome {
     cartMessage: result.message,
     planAdded: true,
     result: { ok: true, confirmation: result.message, cart: cartForModel(result.cart, ctx.fulfilment) },
+  };
+}
+
+function resolveOutlet(ref: string): Outlet | undefined {
+  const byId = findOutlet(ref.trim().toLowerCase().replace(/\s+/g, "-"));
+  if (byId) return byId;
+  const q = ref.toLowerCase().replace(/demo outlet\s*[–-]?\s*/, "").trim();
+  return OUTLETS.find((o) => o.area.toLowerCase() === q || o.name.toLowerCase() === ref.toLowerCase().trim());
+}
+
+function findOutletsTool(args: { area?: string }, ctx: ToolContext): ToolOutcome {
+  const area = args.area ? findArea(args.area) : undefined;
+  if (args.area && !area) {
+    return {
+      result: {
+        ok: true,
+        found_area: false,
+        message: `"${args.area}" is not an area this demo knows. Ask the customer for a nearby Klang Valley area, or to share their location.`,
+        known_areas: OUTLETS.map((o) => o.area),
+      },
+    };
+  }
+  const origin = area ?? ctx.location;
+  const now = ctx.now;
+  const list = origin
+    ? outletsByDistance(origin)
+    : OUTLETS.map((outlet) => ({ outlet, distanceKm: undefined as number | undefined }));
+  return {
+    result: {
+      ok: true,
+      origin: area ? `area: ${area.name}` : ctx.location ? "the customer's shared location" : "unknown (no location shared and no area named)",
+      outlets: list.map(({ outlet, distanceKm }) => ({
+        id: outlet.id,
+        name: outlet.name,
+        address: outlet.address,
+        distance: distanceKm !== undefined ? formatKm(distanceKm) : undefined,
+        delivers_here: distanceKm !== undefined ? distanceKm <= DELIVERY_RADIUS_KM : undefined,
+        open_now: isOpenAt(outlet, now),
+        hours: hoursLabel(outlet),
+        delivery_estimate: distanceKm !== undefined && distanceKm <= DELIVERY_RADIUS_KM ? deliveryEstimate(distanceKm).label : undefined,
+        pickup_estimate: pickupEstimate().label,
+      })),
+      current_outlet: ctx.outletId,
+      delivery_radius: `${DELIVERY_RADIUS_KM} km in a straight line (a demo assumption)`,
+      note: `${OUTLETS_NOTE} Never mention any other outlet. If no location or area is known, ask for an area or suggest the "Use my location" button in the outlet picker.`,
+    },
+  };
+}
+
+function setOutletTool(args: { outlet: string; fulfilment: Fulfilment; area?: string }, ctx: ToolContext): ToolOutcome {
+  const outlet = resolveOutlet(args.outlet);
+  if (!outlet) {
+    return { result: { ok: false, error: `There is no demo outlet "${args.outlet}". Use find_outlets to see the real list.` } };
+  }
+  const area = args.area ? findArea(args.area) : undefined;
+  const origin = area ?? ctx.location;
+  const km = origin ? outletsByDistance(origin).find((d) => d.outlet.id === outlet.id)?.distanceKm : undefined;
+  if (args.fulfilment === "delivery" && km !== undefined && km > DELIVERY_RADIUS_KM) {
+    return {
+      result: {
+        ok: false,
+        error: `${outlet.name} is ${formatKm(km)} away, outside its ${DELIVERY_RADIUS_KM} km demo delivery radius. Offer pickup there, or a nearer outlet.`,
+      },
+    };
+  }
+  const message = args.fulfilment === "pickup" ? `Pickup at ${outlet.name}` : `Delivery from ${outlet.name}`;
+  return {
+    outletChange: { outletId: outlet.id, fulfilment: args.fulfilment, ...(km !== undefined ? { distanceKm: km } : {}), message },
+    result: {
+      ok: true,
+      confirmation: message,
+      estimate: args.fulfilment === "pickup" ? pickupEstimate().label : km !== undefined ? deliveryEstimate(km).label : undefined,
+    },
   };
 }
 

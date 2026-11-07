@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SEEDED_ORDERS } from "@/data/orders";
 import { STORE } from "@/data/store";
+import { findOutlet } from "@/data/outlets";
 import { formatRM } from "@/lib/money";
 import {
   ORDER_STATUSES,
@@ -53,6 +54,7 @@ function OrderDetails({ order, now, isNew }: { order: Order; now: Date; isNew: b
   const label = statusLabel(status, order.fulfilment);
   const firstName = order.customer.name.split(" ")[0];
   const done = status === "delivered";
+  const outlet = order.outletId ? findOutlet(order.outletId) : undefined;
 
   return (
     <div className="space-y-6">
@@ -65,6 +67,12 @@ function OrderDetails({ order, now, isNew }: { order: Order; now: Date; isNew: b
           Placed {formatOrderTime(order.placedAt)} · {order.fulfilment === "delivery" ? "Delivery" : "Pickup"}
           {isNew && " · This status updates every few seconds using sped-up demo timings."}
         </p>
+        {outlet && (
+          <p className="mt-1 font-semibold" data-testid="order-outlet">
+            {order.fulfilment === "pickup" ? "Pickup at " : "From "}
+            {outlet.name}
+          </p>
+        )}
       </div>
 
       <section aria-labelledby="status-title" className="rounded-card border border-line bg-white p-5 shadow-card">
