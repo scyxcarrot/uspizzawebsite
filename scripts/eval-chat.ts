@@ -1,4 +1,5 @@
-// Live chatbot evaluation: sends the 20 acceptance questions to the real
+// Live chatbot evaluation: sends the acceptance questions (20, plus 3 for the
+// group order planner and page awareness) to the real
 // /api/chat endpoint one at a time, checks tools used and key facts, and
 // prints a PASS / FAIL / REVIEW table.
 //
@@ -11,7 +12,9 @@
 // reply (tone, language, safety wording).
 
 import { mkdirSync, writeFileSync } from "node:fs";
+import { findMenuItem } from "../src/data/menu";
 import type { CartLine } from "../src/lib/cart";
+import type { ChatCard, PlanCard } from "../src/lib/chat/cards";
 import type { ChatEvent, Source } from "../src/lib/chat/types";
 import { formatRM } from "../src/lib/money";
 import { priceCart } from "../src/lib/pricing";
@@ -30,6 +33,7 @@ type Reply = {
   cartEvents: CartLine[][];
   cartAfter: CartLine[];
   sources: Source[];
+  cards: ChatCard[];
   error?: string;
   ms: number;
 };
@@ -42,6 +46,8 @@ type Case = {
   check: (r: Reply, cartBefore: CartLine[]) => Check;
   /** Cart this question expects when the question before it was skipped (EVAL_ONLY). */
   cartIfResumed?: CartLine[];
+  /** The page the customer is on and the item they have open (page awareness). */
+  page?: { path: string; itemId?: string };
 };
 
 const TWO_LARGE_PEPPERONI: CartLine[] = [
@@ -68,6 +74,9 @@ const mentionsMinimumIfNeeded = (r: Reply) => {
   const givesTotalOrCheckout = /total|\/checkout/i.test(r.text);
   return !givesTotalOrCheckout || /minimum|RM\s?20(\.00)?\b/i.test(r.text);
 };
+
+const planOf = (r: Reply) => r.cards.find((c): c is PlanCard => c.kind === "plan");
+const planTotal = (p: PlanCard) => formatRM(priceCart(p.lines, p.fulfilment).totalSen);
 
 const has = (t: string, ...words: (string | RegExp)[]) =>
   words.every((w) => (typeof w === "string" ? t.toLowerCase().includes(w.toLowerCase()) : w.test(t)));
@@ -282,15 +291,63 @@ const CASES: Case[] = [
         [!r.text.includes("{{NOW}}"), "leaked template"],
       ),
   },
+  {
+    n: 21,
+    q: "Feed 6 people under RM120, 2 are vegetarian, no beef",
+    expect: "plan_order; a proposal within RM 120 with a vegetarian pizza and no beef; nothing added to the cart",
+    check: (r) => {
+      const plan = planOf(r);
+      if (!plan) return bad("no plan card (plan_order not used?)");
+      const items = plan.lines.map((l) => findMenuItem(l.itemId)!);
+      const c = all(
+        [usedAny(r, "plan_order"), "plan_order not used"],
+        [r.cartEvents.length === 0, "cart changed before the customer said yes"],
+        [plan.people === 6, `planned for ${plan.people} people`],
+        [plan.withinBudget && priceCart(plan.lines, plan.fulfilment).totalSen <= 12000, "over budget"],
+        [!items.some((i) => i.tags.includes("Beef")), "plan has beef"],
+        [items.some((i) => i.kind === "pizza" && i.tags.includes("Vegetarian")), "no vegetarian pizza"],
+        [r.text.includes(planTotal(plan).replace("RM ", "")), `reply does not give the total ${planTotal(plan)}`],
+      );
+      return c.pass ? ok("check it reads as a proposal and mentions what was changed", true) : c;
+    },
+  },
+  {
+    n: 22,
+    q: "Feed 10 people for RM20",
+    expect: "plan_order; says clearly that RM 20 is too low and shows the closest option; nothing added",
+    check: (r) => {
+      const plan = planOf(r);
+      if (!plan) return bad("no plan card (plan_order not used?)");
+      const c = all(
+        [usedAny(r, "plan_order"), "plan_order not used"],
+        [r.cartEvents.length === 0, "cart changed"],
+        [!plan.withinBudget, "plan claims to be within an impossible budget"],
+        [/over|too low|not enough|exceed|more than/i.test(r.text), "does not say it is over budget"],
+      );
+      return c.pass ? ok("check it explains the closest option clearly", true) : c;
+    },
+  },
+  {
+    n: 23,
+    q: "Is this spicy?",
+    expect: "With Spicy Sambal Chicken open: says yes, it is spicy, without asking which item",
+    page: { path: "/", itemId: "spicy-sambal-chicken" },
+    check: (r) =>
+      all(
+        [/\byes\b/i.test(r.text) || /\bis spicy\b/i.test(r.text), "does not say it is spicy"],
+        [!/which (item|pizza|one)/i.test(r.text), "asks which item"],
+        [r.cartEvents.length === 0, "cart changed"],
+      ),
+  },
 ];
 
-async function ask(question: string, cart: CartLine[]): Promise<Reply> {
+async function ask(question: string, cart: CartLine[], page?: Case["page"]): Promise<Reply> {
   const started = Date.now();
-  const reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: cart, sources: [], ms: 0 };
+  const reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: cart, sources: [], cards: [], ms: 0 };
   const res = await fetch(`${BASE_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: [{ role: "user", text: question }], cart, orders: [], fulfilment: "delivery" }),
+    body: JSON.stringify({ messages: [{ role: "user", text: question }], cart, orders: [], fulfilment: "delivery", page }),
   });
   if (!res.ok || !res.body) {
     const body = await res.text();
@@ -309,6 +366,7 @@ async function ask(question: string, cart: CartLine[]): Promise<Reply> {
       reply.cartAfter = e.cart;
     }
     if (e.type === "sources") reply.sources = e.sources;
+    if (e.type === "card") reply.cards.push(e.card);
     if (e.type === "error") reply.error = `${e.code}: ${e.message}`;
   }
   reply.ms = Date.now() - started;
@@ -329,12 +387,12 @@ async function main() {
     if (c.cartIfResumed && previous !== c.n - 1) cart = c.cartIfResumed;
     previous = c.n;
     const before = cart;
-    let reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], ms: 0 };
+    let reply: Reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], cards: [], ms: 0 };
     for (let attempt = 0; attempt <= RATE_LIMIT_RETRIES; attempt++) {
       try {
-        reply = await ask(c.q, before);
+        reply = await ask(c.q, before, c.page);
       } catch (err) {
-        reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], error: String(err), ms: 0 };
+        reply = { text: "", tools: [], cartEvents: [], cartAfter: before, sources: [], cards: [], error: String(err), ms: 0 };
       }
       // A per-minute rate limit is not a chatbot failure: wait and ask again.
       if (!reply.error?.startsWith("rate_limited") || attempt === RATE_LIMIT_RETRIES) break;
