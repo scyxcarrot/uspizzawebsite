@@ -4,6 +4,7 @@
 // or pickup?" without blocking the menu; afterwards it shows the choice
 // ("Delivery from: Bangsar ▾") and opens the picker to change it.
 
+import { usePathname } from "next/navigation";
 import { findOutlet } from "@/data/outlets";
 import { deliveryEstimate, formatKm, pickupEstimate } from "@/lib/outlets";
 import { useAppState } from "@/components/AppStateProvider";
@@ -11,6 +12,8 @@ import { StoreIcon, TruckIcon } from "@/components/Icons";
 
 export function OutletBar() {
   const { ready, outlet, fulfilment, openOutletPicker } = useAppState();
+  const pathname = usePathname();
+  if (pathname.startsWith("/admin")) return null;
   if (!ready) return <div className="h-12 border-b border-line bg-white" aria-hidden />;
 
   const chosen = outlet ? findOutlet(outlet.outletId) : undefined;
